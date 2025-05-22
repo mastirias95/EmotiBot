@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://emotibot:emotibot_pass@db:5432/emotibotdb
+      - SECRET_KEY=dev_secret_key_change_in_production
+      - JWT_SECRET_KEY=dev_jwt_key_change_in_production
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+    restart: always
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_PASSWORD=emotibot_pass
+      - POSTGRES_USER=emotibot
+      - POSTGRES_DB=emotibotdb
+    ports:
+      - "5432:5432"
+    restart: always
+
+volumes:
+  postgres_data: 

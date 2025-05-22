@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmotiBot - Emotional Chat Bot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EmotiBot</h1>
+            <p>A chatbot that understands your emotions</p>
+        </header>
+
+        <div id="user-authentication" style="display: none;">
+            <div class="user-info">
+                <div class="user-avatar" id="user-initial"></div>
+                <div class="user-details">
+                    <h3 id="username-display"></h3>
+                    <p id="email-display"></p>
+                </div>
+                <button id="logout-button" class="logout-button">Logout</button>
+            </div>
+        </div>
+
+        <div id="login-prompt" style="text-align: center; margin-bottom: 20px; display: none;">
+            <p>Please <a href="/login">login</a> or <a href="/register">register</a> to continue.</p>
+        </div>
+
+        <div class="chat-container">
+            <div class="avatar-container">
+                <div id="avatar" class="avatar neutral">
+                    <!-- The avatar face will change based on emotions -->
+                    <div class="avatar-face">
+                        <div class="eyes">
+                            <div class="eye left"></div>
+                            <div class="eye right"></div>
+                        </div>
+                        <div class="mouth"></div>
+                    </div>
+                </div>
+                <div id="emotion-label">neutral</div>
+            </div>
+
+            <div class="messages-container" id="messages">
+                <div class="message bot">
+                    <div class="message-content">Hello! I'm EmotiBot. How are you feeling today?</div>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <textarea id="message-input" placeholder="Type your message here..." rows="2"></textarea>
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+
+        <div class="emotion-stats">
+            <h3>Emotion Analysis</h3>
+            <div id="emotion-data">
+                <div class="stat">
+                    <span class="label">Emotion:</span>
+                    <span id="current-emotion">neutral</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Confidence:</span>
+                    <span id="confidence">100%</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Polarity:</span>
+                    <span id="polarity">0.0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Subjectivity:</span>
+                    <span id="subjectivity">0.0</span>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>EmotiBot &copy; 2023 - Enterprise Software Project</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for authentication
+            const token = localStorage.getItem('auth_token');
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            if (token && user) {
+                // User is authenticated
+                document.getElementById('user-authentication').style.display = 'block';
+                document.getElementById('login-prompt').style.display = 'none';
+                
+                // Display user info
+                document.getElementById('username-display').textContent = user.username;
+                document.getElementById('email-display').textContent = user.email;
+                document.getElementById('user-initial').textContent = user.username.charAt(0).toUpperCase();
+                
+                // Add authentication header to API requests
+                window.authToken = token;
+            } else {
+                // User is not authenticated
+                document.getElementById('user-authentication').style.display = 'none';
+                document.getElementById('login-prompt').style.display = 'block';
+            }
+            
+            // Add logout functionality
+            document.getElementById('logout-button').addEventListener('click', () => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user');
+                window.location.reload();
+            });
+        });
+    </script>
+</body>
+</html> 
