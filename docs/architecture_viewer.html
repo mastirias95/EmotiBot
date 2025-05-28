@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmotiBot Architecture Diagrams</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .diagram-container {
+            margin: 40px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .diagram-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            text-align: center;
+        }
+        .export-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        .export-btn:hover {
+            background: #2980b9;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .note {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ EmotiBot Architecture Diagrams</h1>
+        
+        <div class="note">
+            <strong>📋 Instructions:</strong>
+            <ul>
+                <li>Right-click on any diagram and select "Save image as..." to export</li>
+                <li>Use browser zoom (Ctrl/Cmd + or -) to adjust diagram size</li>
+                <li>These diagrams are perfect for presentations and portfolio documentation</li>
+            </ul>
+        </div>
+
+        <!-- System Overview Diagram -->
+        <div class="diagram-container">
+            <div class="diagram-title">🎯 System Overview Architecture</div>
+            <div class="controls">
+                <button class="export-btn" onclick="exportDiagram('systemOverview')">📸 Export as PNG</button>
+            </div>
+            <div class="mermaid" id="systemOverview">
+graph TB
+    %% User Layer
+    subgraph "👥 Users"
+        WebUser[🌐 Web Users<br/>Chat Interface]
+        AdminUser[👨‍💼 Administrators<br/>Monitoring Dashboard]
+    end
+    
+    %% Load Balancer
+    LB[⚖️ Load Balancer<br/>Kubernetes Ingress<br/>nginx]
+    
+    %% Application Tier
+    subgraph "🚀 Application Tier"
+        subgraph "🎨 Presentation"
+            WebUI[💻 Web Interface<br/>HTML5 + CSS3 + JS<br/>Real-time Chat]
+            RestAPI[🔌 REST API<br/>Flask Framework<br/>JSON Responses]
+            WebSocket[⚡ WebSocket<br/>Socket.IO<br/>Real-time Events]
+        end
+        
+        subgraph "🧠 Business Logic"
+            EmotionAI[😊 Emotion Analysis<br/>TextBlob + NLP<br/>Sentiment Detection]
+            AuthSvc[🔐 Authentication<br/>JWT Tokens<br/>User Management]
+            ChatSvc[💬 Chat Service<br/>Conversation History<br/>Context Management]
+            GeminiAI[🤖 AI Assistant<br/>Google Gemini<br/>Smart Responses]
+        end
+        
+        subgraph "🛡️ Security & Middleware"
+            RateLimit[⏱️ Rate Limiting<br/>DDoS Protection]
+            AuthMW[🔑 Auth Middleware<br/>Token Validation]
+            CORS[🌍 CORS Handler<br/>Security Headers]
+        end
+    end
+    
+    %% Data Tier
+    subgraph "💾 Data Tier"
+        Database[(🗄️ PostgreSQL<br/>User Data<br/>Conversations<br/>Analytics)]
+        Cache[⚡ Cache Layer<br/>Session Storage<br/>Rate Limits]
+    end
+    
+    %% External Services
+    subgraph "☁️ External APIs"
+        GeminiAPI[🧠 Google Gemini API<br/>Large Language Model]
+        Monitoring[📊 Prometheus<br/>Metrics & Monitoring]
+    end
+    
+    %% Infrastructure
+    subgraph "🐳 Infrastructure"
+        K8s[☸️ Kubernetes<br/>Container Orchestration<br/>Auto-scaling]
+        Docker[🐋 Docker<br/>Containerization]
+    end
+    
+    %% Connections
+    WebUser --> LB
+    AdminUser --> LB
+    LB --> WebUI
+    LB --> RestAPI
+    LB --> WebSocket
+    
+    WebUI --> RestAPI
+    WebUI --> WebSocket
+    
+    RestAPI --> RateLimit
+    RestAPI --> AuthMW
+    RestAPI --> CORS
+    WebSocket --> AuthMW
+    
+    RateLimit --> EmotionAI
+    RateLimit --> AuthSvc
+    RateLimit --> ChatSvc
+    RateLimit --> GeminiAI
+    
+    EmotionAI --> Database
+    AuthSvc --> Database
+    ChatSvc --> Database
+    GeminiAI --> GeminiAPI
+    
+    AuthMW --> Cache
+    RateLimit --> Cache
+    
+    RestAPI --> Monitoring
+    EmotionAI --> Monitoring
+    
+    K8s --> Docker
+    RestAPI -.-> K8s
+    Database -.-> K8s
+    
+    %% Styling
+    classDef userTier fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    classDef appTier fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef dataTier fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef externalTier fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef infraTier fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    class WebUser,AdminUser userTier
+    class WebUI,RestAPI,WebSocket,EmotionAI,AuthSvc,ChatSvc,GeminiAI,RateLimit,AuthMW,CORS appTier
+    class Database,Cache dataTier
+    class GeminiAPI,Monitoring externalTier
+    class K8s,Docker infraTier
+            </div>
+        </div>
+
+        <!-- Service Layer Architecture -->
+        <div class="diagram-container">
+            <div class="diagram-title">🧠 Service Layer Architecture</div>
+            <div class="controls">
+                <button class="export-btn" onclick="exportDiagram('serviceLayer')">📸 Export as PNG</button>
+            </div>
+            <div class="mermaid" id="serviceLayer">
+graph TB
+    subgraph "🔧 Core Services"
+        subgraph "😊 Emotion Service"
+            TextBlob[📝 TextBlob Analysis]
+            Sentiment[💭 Sentiment Scoring]
+            Polarity[⚖️ Polarity Detection]
+        end
+        
+        subgraph "🔐 Auth Service"
+            JWT[🎫 JWT Management]
+            Hash[🔒 Password Hashing]
+            Validation[✅ Input Validation]
+        end
+        
+        subgraph "🤖 Gemini Service"
+            Context[🧠 Context Building]
+            Prompt[📝 Prompt Engineering]
+            Response[💬 Response Generation]
+            Fallback[🔄 Fallback Handling]
+        end
+        
+        subgraph "💬 Conversation Service"
+            History[📚 History Management]
+            Insights[📊 Mood Insights]
+            Analytics[📈 Usage Analytics]
+        end
+        
+        subgraph "⚡ WebSocket Service"
+            Events[📡 Event Broadcasting]
+            Rooms[🏠 Room Management]
+            Typing[⌨️ Typing Indicators]
+        end
+    end
+    
+    TextBlob --> Sentiment
+    Sentiment --> Polarity
+    JWT --> Hash
+    Hash --> Validation
+    Context --> Prompt
+    Prompt --> Response
+    Response --> Fallback
+    History --> Insights
+    Insights --> Analytics
+    Events --> Rooms
+    Rooms --> Typing
+            </div>
+        </div>
+
+        <!-- Data Architecture -->
+        <div class="diagram-container">
+            <div class="diagram-title">🗄️ Data Architecture</div>
+            <div class="controls">
+                <button class="export-btn" onclick="exportDiagram('dataArch')">📸 Export as PNG</button>
+            </div>
+            <div class="mermaid" id="dataArch">
+erDiagram
+    USER {
+        int id PK
+        string username UK
+        string email UK
+        string password_hash
+        datetime created_at
+        datetime updated_at
+    }
+    
+    CONVERSATION {
+        int id PK
+        int user_id FK
+        text message
+        text response
+        float emotion_score
+        string emotion_type
+        float polarity
+        float subjectivity
+        datetime timestamp
+    }
+    
+    SESSION {
+        string id PK
+        int user_id FK
+        text jwt_token
+        datetime expires_at
+        datetime created_at
+    }
+    
+    EMOTION_ANALYTICS {
+        int id PK
+        int user_id FK
+        string emotion_type
+        float avg_score
+        int count
+        date analysis_date
+    }
+    
+    USER ||--o{ CONVERSATION : "has many"
+    USER ||--o{ SESSION : "has many"
+    USER ||--o{ EMOTION_ANALYTICS : "has many"
+            </div>
+        </div>
+
+        <!-- Real-time Flow -->
+        <div class="diagram-container">
+            <div class="diagram-title">🔄 Real-time Emotion Analysis Flow</div>
+            <div class="controls">
+                <button class="export-btn" onclick="exportDiagram('realtimeFlow')">📸 Export as PNG</button>
+            </div>
+            <div class="mermaid" id="realtimeFlow">
+sequenceDiagram
+    participant U as User Browser
+    participant WS as WebSocket Service
+    participant ES as Emotion Service
+    participant GS as Gemini Service
+    participant DB as Database
+    participant UI as UI Components
+    
+    U->>WS: Connect to WebSocket
+    WS->>U: Connection established
+    
+    U->>WS: Send message
+    WS->>ES: Analyze emotion
+    ES->>ES: TextBlob processing
+    ES->>WS: Return emotion data
+    
+    WS->>GS: Generate AI response
+    GS->>GS: Build context
+    GS->>GS: Call Gemini API
+    GS->>WS: Return AI response
+    
+    WS->>DB: Save conversation
+    WS->>U: Broadcast emotion + response
+    U->>UI: Update avatar & chat
+            </div>
+        </div>
+
+        <!-- Kubernetes Deployment -->
+        <div class="diagram-container">
+            <div class="diagram-title">🐳 Kubernetes Deployment Architecture</div>
+            <div class="controls">
+                <button class="export-btn" onclick="exportDiagram('k8sDeploy')">📸 Export as PNG</button>
+            </div>
+            <div class="mermaid" id="k8sDeploy">
+graph TB
+    subgraph "☁️ Kubernetes Cluster"
+        subgraph "🌐 Ingress Layer"
+            Ingress[nginx-ingress-controller<br/>- SSL termination<br/>- Load balancing<br/>- WebSocket support]
+        end
+        
+        subgraph "🔧 Application Pods"
+            Pod1[EmotiBot Pod 1<br/>- Flask app<br/>- All services<br/>- Health checks]
+            Pod2[EmotiBot Pod 2<br/>- Flask app<br/>- All services<br/>- Health checks]
+        end
+        
+        subgraph "💾 Database Layer"
+            PG[PostgreSQL Pod<br/>- Primary database<br/>- Persistent storage<br/>- Backup ready]
+            PVC[Persistent Volume<br/>- Data persistence<br/>- Cross-pod storage]
+        end
+        
+        subgraph "🔐 Configuration"
+            Secrets[Kubernetes Secrets<br/>- API keys<br/>- Database credentials<br/>- JWT secrets]
+            ConfigMap[ConfigMaps<br/>- App configuration<br/>- Environment variables]
+        end
+        
+        subgraph "📊 Monitoring"
+            Prometheus[Prometheus<br/>- Metrics collection<br/>- Alerting rules<br/>- Service discovery]
+        end
+    end
+    
+    Ingress --> Pod1
+    Ingress --> Pod2
+    Pod1 --> PG
+    Pod2 --> PG
+    PG --> PVC
+    Pod1 --> Secrets
+    Pod2 --> Secrets
+    Pod1 --> ConfigMap
+    Pod2 --> ConfigMap
+    Pod1 --> Prometheus
+    Pod2 --> Prometheus
+            </div>
+        </div>
+
+        <!-- Technology Stack -->
+        <div class="diagram-container">
+            <div class="diagram-title">🏗️ Technology Stack Overview</div>
+            <div class="controls">
+                <button class="export-btn" onclick="exportDiagram('techStack')">📸 Export as PNG</button>
+            </div>
+            <div class="mermaid" id="techStack">
+graph TB
+    subgraph "🎨 Frontend"
+        HTML[HTML5<br/>Semantic markup]
+        CSS[CSS3<br/>Responsive design<br/>Animations]
+        JS[JavaScript<br/>Socket.IO client<br/>DOM manipulation]
+    end
+    
+    subgraph "⚙️ Backend"
+        Flask[Flask 2.3+<br/>Web framework]
+        SocketIO[Flask-SocketIO<br/>Real-time features]
+        SQLAlchemy[SQLAlchemy<br/>ORM & migrations]
+        JWT[PyJWT<br/>Authentication]
+        TextBlob[TextBlob<br/>NLP processing]
+    end
+    
+    subgraph "🗄️ Database"
+        PostgreSQL[PostgreSQL 15<br/>Production database]
+        SQLite[SQLite<br/>Development database]
+    end
+    
+    subgraph "☁️ Infrastructure"
+        Docker[Docker<br/>Containerization]
+        Kubernetes[Kubernetes<br/>Orchestration]
+        Prometheus[Prometheus<br/>Monitoring]
+        Nginx[Nginx Ingress<br/>Load balancing]
+    end
+    
+    subgraph "🤖 AI/ML"
+        Gemini[Google Gemini<br/>Large Language Model]
+        NLP[Natural Language<br/>Processing Pipeline]
+    end
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#3498db',
+                primaryTextColor: '#2c3e50',
+                primaryBorderColor: '#2980b9',
+                lineColor: '#34495e',
+                secondaryColor: '#ecf0f1',
+                tertiaryColor: '#f8f9fa'
+            }
+        });
+
+        // Function to export diagram (placeholder - requires additional libraries for full functionality)
+        function exportDiagram(diagramId) {
+            alert('To export: Right-click on the diagram and select "Save image as..." or use browser print to PDF');
+        }
+
+        // Add print styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @media print {
+                .controls, .note { display: none; }
+                .diagram-container { page-break-inside: avoid; margin: 20px 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html> 
