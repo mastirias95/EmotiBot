@@ -4,6 +4,7 @@
 
 # Environment
 .env
+.env.*
 .venv
 env/
 venv/
@@ -26,6 +27,7 @@ data/
 
 # Documentation
 docs/
+README.md
 
 # Docker
 Dockerfile
@@ -36,4 +38,14 @@ docker-compose.yml
 .idea/
 .vscode/
 *.swp
-*.swo 
+*.swo
+
+# Test files
+test_*.py
+tests/
+
+# Instance directory
+instance/
+
+# Logs
+*.log 
