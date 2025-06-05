@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"  # Check weekly instead of daily
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "your-github-username"  # Replace with your username
+    assignees:
+      - "your-github-username"  # Replace with your username
+    commit-message:
+      prefix: "deps"
+      include: "scope" 
