@@ -19,7 +19,7 @@ prometheus-flask-exporter==0.23.0
 flask-socketio==5.3.6
 python-engineio==4.7.1
 python-socketio==5.9.0
-eventlet==0.33.3
+eventlet==0.35.2
 # PostgreSQL adapter for production/Docker
 psycopg2-binary==2.9.7
 # Load testing dependencies
