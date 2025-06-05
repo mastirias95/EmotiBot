@@ -4,18 +4,26 @@ services:
   web:
     build: .
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=development
+      - FLASK_APP=run_app.py
+      - FLASK_ENV=production
       - DATABASE_URL=postgresql://emotibot:emotibot_pass@db:5432/emotibotdb
       - SECRET_KEY=dev_secret_key_change_in_production
       - JWT_SECRET_KEY=dev_jwt_key_change_in_production
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-your_api_key_here}
+      - PYTHONUNBUFFERED=1
     depends_on:
       - db
     volumes:
       - .:/app
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   db:
     image: postgres:13
@@ -28,6 +36,11 @@ services:
     ports:
       - "5432:5432"
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emotibot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data: 

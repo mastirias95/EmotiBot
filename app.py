@@ -7,6 +7,21 @@ from prometheus_flask_exporter import PrometheusMetrics
 from services.emotion_service import EmotionService
 from services.auth_service import AuthService
 from services.conversation_service import ConversationService
+from services.gemini_service import GeminiService
+# Try to import WebSocket service, but make it optional for now
+try:
+    from services.websocket_service import WebSocketService
+    WEBSOCKET_AVAILABLE = True
+    print("✓ WebSocket service import successful")
+except ImportError as e:
+    WEBSOCKET_AVAILABLE = False
+    print(f"✗ WebSocket service import failed: {e}")
+    print("Running without real-time features.")
+except Exception as e:
+    WEBSOCKET_AVAILABLE = False
+    print(f"✗ WebSocket service initialization error: {e}")
+    print("Running without real-time features.")
+
 from middleware.rate_limiter import RateLimiter
 from middleware.auth import token_required
 from models.user import db
@@ -64,6 +79,19 @@ def create_app(config_name='default'):
     
     conversation_service = ConversationService()
     app.conversation_service = conversation_service  # Make conversation_service available
+    
+    # Initialize Gemini service
+    gemini_service = GeminiService()
+    app.gemini_service = gemini_service
+    
+    # Initialize WebSocket service if available
+    if WEBSOCKET_AVAILABLE:
+        websocket_service = WebSocketService(app)
+        app.websocket_service = websocket_service
+        logger.info("WebSocket service initialized successfully")
+    else:
+        app.websocket_service = None
+        logger.warning("WebSocket service not available")
     
     # Create database tables
     with app.app_context():
@@ -203,6 +231,31 @@ def create_app(config_name='default'):
             'history': history
         }), 200
     
+    @app.route('/api/conversations/insights', methods=['GET'])
+    @token_required
+    @metrics.counter('insights_requests', 'Number of mood insights requests')
+    def get_mood_insights():
+        """Get AI-generated mood insights for the user."""
+        user = g.user
+        
+        # Get conversation history for analysis
+        history = conversation_service.get_user_conversation_history(user.id, limit=10)
+        
+        if not history:
+            return jsonify({
+                'insights': 'Start chatting with me to get personalized mood insights!'
+            }), 200
+        
+        # Generate insights using Gemini
+        insights = app.gemini_service.generate_mood_insights(history)
+        
+        logger.info(f"Generated mood insights for user: {user.username}")
+        
+        return jsonify({
+            'insights': insights,
+            'conversation_count': len(history)
+        }), 200
+    
     @app.route('/api/analyze', methods=['POST'])
     @metrics.counter('emotion_analysis', 'Number of emotion analysis requests')
     @metrics.histogram('emotion_analysis_latency', 'Latency of emotion analysis requests',
@@ -225,26 +278,36 @@ def create_app(config_name='default'):
         # Analyze the emotion in the text
         result = EmotionService.detect_emotion(text)
         
-        # Save conversation for authenticated users
+        # Generate bot response using Gemini or fallback
+        conversation_history = []
+        user_id = None
+        
+        # Check if user is authenticated
         auth_header = request.headers.get('Authorization')
         if auth_header and hasattr(g, 'user') and g.user:
-            # Generate a mock bot response for now
-            bot_responses = {
-                'happy': "You seem happy! That's great to hear!",
-                'sad': "I'm sorry to hear you're feeling down.",
-                'angry': "I understand you're frustrated right now.",
-                'surprised': "Wow! That is surprising!",
-                'fearful': "It's okay to be worried, but remember you're not alone.",
-                'neutral': "I understand what you're saying."
-            }
-            bot_message = bot_responses.get(result['emotion'], "I understand.")
-            
-            # Save the conversation
-            conversation_service.save_conversation(g.user.id, text, bot_message, result)
+            user_id = g.user.id
+            # Get recent conversation history for context
+            conversation_history = conversation_service.get_user_conversation_history(user_id, limit=5)
+        
+        # Generate response using Gemini
+        bot_message = app.gemini_service.generate_emotional_response(
+            text, 
+            result['emotion'], 
+            result['confidence'],
+            conversation_history
+        )
+        
+        # Save conversation for authenticated users
+        if user_id:
+            conversation_service.save_conversation(user_id, text, bot_message, result)
         
         logger.info(f"Analyzed text: '{text}', detected emotion: {result['emotion']}")
         
-        return jsonify(result)
+        # Return the analysis result with bot response
+        return jsonify({
+            **result,
+            'bot_message': bot_message
+        })
     
     # Health check endpoint for Kubernetes
     @app.route('/health')
@@ -274,5 +337,10 @@ def create_app(config_name='default'):
 if __name__ == '__main__':
     logger.debug("Starting application...")
     app = create_app()
-    logger.info("EmotiBot is running on http://0.0.0.0:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    logger.info("EmotiBot is running on http://0.0.0.0:5001")
+    
+    # Use eventlet as the WebSocket server if available, otherwise use regular Flask
+    if WEBSOCKET_AVAILABLE and hasattr(app, 'websocket_service') and app.websocket_service:
+        app.websocket_service.socketio.run(app, host='0.0.0.0', port=5001, debug=True)
+    else:
+        app.run(host='0.0.0.0', port=5001, debug=True) 

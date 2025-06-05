@@ -1,0 +1,21 @@
+# Staging Environment Configuration
+# This file documents the staging environment setup
+
+environment:
+  name: staging
+  url: https://staging.emotibot.local
+  
+variables:
+  FLASK_ENV: staging
+  DATABASE_URL: postgresql://emotibot:${POSTGRES_PASSWORD}@postgres-staging:5432/emotibotdb_staging
+  GEMINI_MOCK_MODE: false
+  LOG_LEVEL: INFO
+  
+protection_rules:
+  required_reviewers: 1
+  prevent_self_review: true
+  
+deployment_branch_policy:
+  protected_branches: false
+  custom_branches:
+    - develop 

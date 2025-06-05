@@ -3,116 +3,363 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EmotiBot - Emotional Chat Bot</title>
+    <title>EmotiBot - Emotion Analysis</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>EmotiBot</h1>
-            <p>A chatbot that understands your emotions</p>
+            <h1>🤖 EmotiBot</h1>
+            <p>Your AI-powered emotional companion</p>
+            <div class="connection-status-container">
+                <span id="connection-status" class="connection-status disconnected">disconnected</span>
+                <span class="status-label">WebSocket Status</span>
+            </div>
+            <div class="header-controls">
+                <div class="nav-buttons">
+                    <button onclick="window.location.href='/login'" class="nav-button">Sign In</button>
+                    <button onclick="window.location.href='/register'" class="nav-button">Register</button>
+                    <button onclick="showApiDocs()" class="nav-button">API Docs</button>
+                    <button onclick="window.open('/health', '_blank')" class="nav-button">Health Check</button>
+                    <button onclick="window.open('/metrics', '_blank')" class="nav-button">Metrics</button>
+                </div>
+            </div>
         </header>
 
-        <div id="user-authentication" style="display: none;">
-            <div class="user-info">
-                <div class="user-avatar" id="user-initial"></div>
-                <div class="user-details">
-                    <h3 id="username-display"></h3>
-                    <p id="email-display"></p>
+        <div class="feature-info">
+            <h3>Available Features:</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>💬 Chat Interface</h4>
+                    <p>Type messages below to analyze emotions in real-time</p>
                 </div>
-                <button id="logout-button" class="logout-button">Logout</button>
+                <div class="feature-card">
+                    <h4>🔐 User Authentication</h4>
+                    <p>Sign up or log in to save conversation history</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📊 Emotion Analysis</h4>
+                    <p>Advanced sentiment analysis with confidence scores</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📈 Monitoring</h4>
+                    <p>Health checks and Prometheus metrics available</p>
+                </div>
             </div>
         </div>
 
-        <div id="login-prompt" style="text-align: center; margin-bottom: 20px; display: none;">
-            <p>Please <a href="/login">login</a> or <a href="/register">register</a> to continue.</p>
-        </div>
-
-        <div class="chat-container">
-            <div class="avatar-container">
-                <div id="avatar" class="avatar neutral">
-                    <!-- The avatar face will change based on emotions -->
-                    <div class="avatar-face">
-                        <div class="eyes">
-                            <div class="eye left"></div>
-                            <div class="eye right"></div>
+        <main>
+            <div id="chat-container">
+                <div class="avatar-container">
+                    <div id="avatar" class="avatar neutral">
+                        <div class="avatar-face">
+                            <div class="eyes">
+                                <div class="eye left"></div>
+                                <div class="eye right"></div>
+                            </div>
+                            <div class="mouth"></div>
                         </div>
-                        <div class="mouth"></div>
+                    </div>
+                    <div id="emotion-label">neutral</div>
+                </div>
+                
+                <div id="chat-messages">
+                    <div class="message bot">
+                        Hello! I'm EmotiBot. Type a message and I'll analyze your emotions!
                     </div>
                 </div>
-                <div id="emotion-label">neutral</div>
-            </div>
-
-            <div class="messages-container" id="messages">
-                <div class="message bot">
-                    <div class="message-content">Hello! I'm EmotiBot. How are you feeling today?</div>
+                <div id="typing-indicator" class="hidden">EmotiBot is analyzing...</div>
+                <div class="input-container">
+                    <textarea id="message-input" placeholder="Type your message here..."></textarea>
+                    <button id="send-button">Send</button>
                 </div>
             </div>
 
-            <div class="input-container">
-                <textarea id="message-input" placeholder="Type your message here..." rows="2"></textarea>
-                <button id="send-button">Send</button>
+            <div id="emotion-display">
+                <h3>Current Emotion</h3>
+                <div id="emotion-result">
+                    <span id="emotion-text">neutral</span>
+                    <span id="emotion-confidence">-</span>
+                </div>
+                <div class="emotion-details">
+                    <small>Polarity: <span id="polarity">-</span></small>
+                    <small>Subjectivity: <span id="subjectivity">-</span></small>
+                </div>
+            </div>
+        </main>
+
+        <!-- API Documentation Modal -->
+        <div id="api-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="hideApiDocs()">&times;</span>
+                <h2>EmotiBot API Documentation</h2>
+                <div class="api-section">
+                    <h3>Authentication Endpoints</h3>
+                    <div class="endpoint">
+                        <strong>POST /api/auth/register</strong>
+                        <p>Register a new user account</p>
+                        <code>{"username": "user", "email": "user@example.com", "password": "password"}</code>
+                    </div>
+                    <div class="endpoint">
+                        <strong>POST /api/auth/login</strong>
+                        <p>Login with existing credentials</p>
+                        <code>{"username": "user", "password": "password"}</code>
+                    </div>
+                    <div class="endpoint">
+                        <strong>GET /api/auth/me</strong>
+                        <p>Get current user profile (requires authentication)</p>
+                    </div>
+                </div>
+                <div class="api-section">
+                    <h3>Emotion Analysis</h3>
+                    <div class="endpoint">
+                        <strong>POST /api/analyze</strong>
+                        <p>Analyze emotion in text</p>
+                        <code>{"text": "I am feeling happy today!"}</code>
+                    </div>
+                </div>
+                <div class="api-section">
+                    <h3>Conversation History</h3>
+                    <div class="endpoint">
+                        <strong>GET /api/conversations/history</strong>
+                        <p>Get conversation history (requires authentication)</p>
+                    </div>
+                </div>
+                <div class="api-section">
+                    <h3>System</h3>
+                    <div class="endpoint">
+                        <strong>GET /health</strong>
+                        <p>Application health check</p>
+                    </div>
+                    <div class="endpoint">
+                        <strong>GET /metrics</strong>
+                        <p>Prometheus metrics for monitoring</p>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <div class="emotion-stats">
-            <h3>Emotion Analysis</h3>
-            <div id="emotion-data">
-                <div class="stat">
-                    <span class="label">Emotion:</span>
-                    <span id="current-emotion">neutral</span>
-                </div>
-                <div class="stat">
-                    <span class="label">Confidence:</span>
-                    <span id="confidence">100%</span>
-                </div>
-                <div class="stat">
-                    <span class="label">Polarity:</span>
-                    <span id="polarity">0.0</span>
-                </div>
-                <div class="stat">
-                    <span class="label">Subjectivity:</span>
-                    <span id="subjectivity">0.0</span>
-                </div>
-            </div>
-        </div>
-
-        <footer>
-            <p>EmotiBot &copy; 2023 - Enterprise Software Project</p>
-        </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/static/js/websocket.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check for authentication
-            const token = localStorage.getItem('auth_token');
-            const user = JSON.parse(localStorage.getItem('user') || 'null');
+        let websocket = null;
+        let currentUser = null;
+        let useWebSockets = false;
+
+        function addMessage(sender, text) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender);
+            messageDiv.textContent = text;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showTyping() {
+            document.getElementById('typing-indicator').classList.remove('hidden');
+        }
+
+        function hideTyping() {
+            document.getElementById('typing-indicator').classList.add('hidden');
+        }
+
+        function showApiDocs() {
+            document.getElementById('api-modal').classList.remove('hidden');
+        }
+
+        function hideApiDocs() {
+            document.getElementById('api-modal').classList.add('hidden');
+        }
+
+        function updateAvatar(emotion, isPreview = false) {
+            const avatar = document.getElementById('avatar');
+            const emotionLabel = document.getElementById('emotion-label');
             
-            if (token && user) {
-                // User is authenticated
-                document.getElementById('user-authentication').style.display = 'block';
-                document.getElementById('login-prompt').style.display = 'none';
-                
-                // Display user info
-                document.getElementById('username-display').textContent = user.username;
-                document.getElementById('email-display').textContent = user.email;
-                document.getElementById('user-initial').textContent = user.username.charAt(0).toUpperCase();
-                
-                // Add authentication header to API requests
-                window.authToken = token;
+            // Remove all emotion classes
+            avatar.className = 'avatar';
+            // Add the new emotion class
+            avatar.classList.add(emotion);
+            
+            if (isPreview) {
+                avatar.style.opacity = '0.7';
+                emotionLabel.textContent = `${emotion} (preview)`;
             } else {
-                // User is not authenticated
-                document.getElementById('user-authentication').style.display = 'none';
-                document.getElementById('login-prompt').style.display = 'block';
+                avatar.style.opacity = '1';
+                emotionLabel.textContent = emotion;
             }
+        }
+
+        function updateEmotionDisplay(data, isPreview = false) {
+            const prefix = isPreview ? '~' : '';
+            document.getElementById('emotion-text').textContent = prefix + data.emotion;
+            document.getElementById('emotion-confidence').textContent = 
+                `${Math.round(data.confidence * 100)}%`;
+            document.getElementById('polarity').textContent = data.polarity?.toFixed(2) || '-';
+            document.getElementById('subjectivity').textContent = data.subjectivity?.toFixed(2) || '-';
             
-            // Add logout functionality
-            document.getElementById('logout-button').addEventListener('click', () => {
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('user');
-                window.location.reload();
+            updateAvatar(data.emotion, isPreview);
+        }
+
+        function initializeWebSocket() {
+            // For demo purposes, we'll use WebSockets without authentication
+            // In a real app, you'd get the token from login
+            const demoToken = 'demo_user_token';
+            
+            websocket = new EmotiBotWebSocket(demoToken);
+            
+            // Set up WebSocket callbacks
+            websocket.onConnect(() => {
+                console.log('WebSocket connected successfully');
+                useWebSockets = true;
+                updateConnectionStatus('connected');
+                // Add visual indicator that WebSocket is active
+                document.body.classList.add('websocket-active');
+            });
+            
+            websocket.onDisconnect(() => {
+                console.log('WebSocket disconnected');
+                useWebSockets = false;
+                updateConnectionStatus('disconnected');
+                document.body.classList.remove('websocket-active');
+            });
+            
+            websocket.onError((error) => {
+                console.error('WebSocket error:', error);
+                useWebSockets = false;
+                updateConnectionStatus('error');
+                document.body.classList.remove('websocket-active');
+            });
+            
+            websocket.onEmotionAnalysis((data) => {
+                console.log('Received emotion analysis via WebSocket:', data);
+                hideTyping();
+                updateEmotionDisplay(data, false);
+                addMessage('bot', data.bot_message);
+            });
+            
+            websocket.onEmotionPreview((data) => {
+                console.log('Received emotion preview via WebSocket:', data);
+                updateEmotionDisplay(data, true);
+            });
+            
+            websocket.onConnectionStatus((status) => {
+                console.log('WebSocket connection status changed:', status);
+                updateConnectionStatus(status);
+            });
+            
+            // Try to connect
+            try {
+                console.log('Attempting to connect WebSocket...');
+                websocket.connect();
+            } catch (error) {
+                console.error('Failed to initialize WebSocket:', error);
+                useWebSockets = false;
+                updateConnectionStatus('error');
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connection-status');
+            if (statusElement) {
+                statusElement.textContent = status;
+                statusElement.className = `connection-status ${status}`;
+            }
+        }
+
+        function analyzeEmotion(text) {
+            if (useWebSockets && websocket && websocket.isConnected()) {
+                // Use WebSocket for real-time analysis
+                showTyping();
+                websocket.analyzeEmotion(text);
+            } else {
+                // Fallback to HTTP API
+                showTyping();
+                
+                fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideTyping();
+                    updateEmotionDisplay(data, false);
+                    const botMessage = data.bot_message || "I understand how you feel. Tell me more about it.";
+                    addMessage('bot', botMessage);
+                })
+                .catch(error => {
+                    hideTyping();
+                    console.error('Error:', error);
+                    addMessage('bot', 'Sorry, I had trouble analyzing that. Please try again.');
+                    updateAvatar('neutral');
+                });
+            }
+        }
+
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+
+            // Initialize WebSocket
+            initializeWebSocket();
+
+            function sendMessage() {
+                const text = messageInput.value.trim();
+                if (text) {
+                    addMessage('user', text);
+                    analyzeEmotion(text);
+                    messageInput.value = '';
+                }
+            }
+
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Add live emotion preview as user types
+            let typingTimer;
+            messageInput.addEventListener('input', (e) => {
+                const text = e.target.value.trim();
+                console.log('User typing, text length:', text.length, 'WebSocket connected:', useWebSockets && websocket && websocket.isConnected());
+                
+                // Send typing indicator
+                if (useWebSockets && websocket && websocket.isConnected()) {
+                    websocket.setTyping(true);
+                    
+                    // Send live emotion preview
+                    if (text.length > 3) {
+                        console.log('Sending live emotion preview for:', text.substring(0, 20) + '...');
+                        websocket.sendLiveEmotionPreview(text);
+                    } else {
+                        console.log('Text too short for preview, length:', text.length);
+                    }
+                } else {
+                    console.log('WebSocket not available for live preview');
+                }
+                
+                // Clear typing indicator after user stops typing
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    if (useWebSockets && websocket && websocket.isConnected()) {
+                        websocket.setTyping(false);
+                    }
+                }, 1000);
+            });
+
+            // Close modal when clicking outside
+            window.addEventListener('click', (e) => {
+                const modal = document.getElementById('api-modal');
+                if (e.target === modal) {
+                    hideApiDocs();
+                }
             });
         });
     </script>
