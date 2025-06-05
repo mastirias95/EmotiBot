@@ -1,0 +1,27 @@
+# Production Environment Configuration
+# This file documents the production environment setup
+
+environment:
+  name: production
+  url: https://emotibot.com
+  
+variables:
+  FLASK_ENV: production
+  DATABASE_URL: postgresql://emotibot:${POSTGRES_PASSWORD}@postgres-prod:5432/emotibotdb
+  GEMINI_MOCK_MODE: false
+  LOG_LEVEL: INFO
+  
+protection_rules:
+  required_reviewers: 2
+  prevent_self_review: true
+  required_status_checks:
+    - code-quality
+    - test
+    - build
+    - security-scan
+    - load-test
+  
+deployment_branch_policy:
+  protected_branches: true
+  custom_branches:
+    - main 

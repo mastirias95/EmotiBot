@@ -1,0 +1,8 @@
+# Additional testing and CI/CD dependencies
+flake8==6.0.0
+black==23.7.0
+isort==5.12.0
+bandit==1.7.5
+safety==2.3.4
+pytest-xdist==3.3.1
+pytest-mock==3.11.1 

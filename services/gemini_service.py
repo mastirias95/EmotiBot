@@ -17,6 +17,8 @@ class GeminiService:
             api_key: Google AI API key. If not provided, will try to get from environment.
         """
         self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        # Check for mock mode (for load testing)
+        self.mock_mode = os.getenv('GEMINI_MOCK_MODE', 'false').lower() == 'true'
         # Try different model endpoints
         self.model_endpoints = [
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
@@ -24,9 +26,11 @@ class GeminiService:
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
         ]
         self.base_url = self.model_endpoints[0]  # Default to first endpoint
-        self.enabled = bool(self.api_key)
+        self.enabled = bool(self.api_key) and not self.mock_mode
         
-        if not self.enabled:
+        if self.mock_mode:
+            logger.info("Gemini service running in MOCK MODE for load testing.")
+        elif not self.enabled:
             logger.warning("Gemini API key not found. Gemini features will be disabled.")
             logger.debug(f"Checked environment variable GEMINI_API_KEY: {os.getenv('GEMINI_API_KEY') is not None}")
         else:
