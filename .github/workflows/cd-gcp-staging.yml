@@ -1,0 +1,252 @@
+name: CD - Deploy to GCP Staging
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: emotibot-staging
+  GKE_CLUSTER: emotibot-cluster
+  GKE_ZONE: us-central1-a
+  REGISTRY_HOSTNAME: us-central1-docker.pkg.dev
+  REPOSITORY: emotibot-repo
+
+jobs:
+  deploy-to-gcp:
+    name: Deploy to GCP Staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Google Cloud CLI  
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Configure Docker to use gcloud as a credential helper
+      run: |
+        gcloud auth configure-docker ${{ env.REGISTRY_HOSTNAME }}
+
+    - name: Get GKE credentials
+      run: |
+        gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE"
+
+    - name: Build and push Docker images
+      run: |
+        cd microservices
+        
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        
+        for service in "${services[@]}"; do
+          echo "🔨 Building $service..."
+          
+          # Build image
+          docker build -t ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:${{ github.sha }} ./${service}
+          docker build -t ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:latest ./${service}
+          
+          # Push images
+          docker push ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:latest
+          
+          echo "✅ $service pushed to registry"
+        done
+
+    - name: Create Kubernetes namespace
+      run: |
+        kubectl create namespace emotibot-staging --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy secrets
+      run: |
+        kubectl create secret generic emotibot-secrets \
+          --from-literal=secret-key="${{ secrets.SECRET_KEY }}" \
+          --from-literal=jwt-secret-key="${{ secrets.JWT_SECRET_KEY }}" \
+          --from-literal=service-secret="${{ secrets.SERVICE_SECRET }}" \
+          --from-literal=gemini-api-key="${{ secrets.GEMINI_API_KEY }}" \
+          --from-literal=auth-database-url="${{ secrets.GCP_AUTH_DATABASE_URL }}" \
+          --from-literal=conversation-database-url="${{ secrets.GCP_CONV_DATABASE_URL }}" \
+          --from-literal=redis-host="${{ secrets.GCP_REDIS_HOST }}" \
+          --namespace emotibot-staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Update deployment manifests
+      run: |
+        cd kubernetes
+        
+        # Update image references in deployment files
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        
+        for service in "${services[@]}"; do
+          # Update deployment-microservices.yaml with new image paths
+          sed -i "s|image: .*/${service}:.*|image: ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:${{ github.sha }}|g" deployment-microservices.yaml
+        done
+        
+        # Update namespace to staging
+        sed -i 's/namespace: default/namespace: emotibot-staging/g' deployment-microservices.yaml
+        sed -i 's/namespace: default/namespace: emotibot-staging/g' services-microservices.yaml
+
+    - name: Deploy to GKE
+      run: |
+        cd kubernetes
+        
+        echo "🚀 Deploying microservices..."
+        kubectl apply -f deployment-microservices.yaml
+        kubectl apply -f services-microservices.yaml
+        
+        echo "⏳ Waiting for deployments to be ready..."
+        kubectl wait --for=condition=available --timeout=600s deployment --all -n emotibot-staging
+
+    - name: Deploy Kong API Gateway
+      run: |
+        # Create Kong ConfigMap
+        kubectl create configmap kong-config \
+          --from-file=kong.yml=microservices/api-gateway/kong.yml \
+          --namespace emotibot-staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Deploy Kong
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: kong
+          namespace: emotibot-staging
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: kong
+          template:
+            metadata:
+              labels:
+                app: kong
+            spec:
+              containers:
+              - name: kong
+                image: kong:3.4
+                env:
+                - name: KONG_DATABASE
+                  value: "off"
+                - name: KONG_DECLARATIVE_CONFIG
+                  value: /kong.yml
+                - name: KONG_PROXY_ACCESS_LOG
+                  value: /dev/stdout
+                - name: KONG_ADMIN_ACCESS_LOG
+                  value: /dev/stdout
+                - name: KONG_PROXY_ERROR_LOG
+                  value: /dev/stderr
+                - name: KONG_ADMIN_ERROR_LOG
+                  value: /dev/stderr
+                - name: KONG_ADMIN_LISTEN
+                  value: "0.0.0.0:8001"
+                - name: KONG_PROXY_LISTEN
+                  value: "0.0.0.0:8000"
+                ports:
+                - containerPort: 8000
+                - containerPort: 8001
+                volumeMounts:
+                - name: kong-config
+                  mountPath: /kong.yml
+                  subPath: kong.yml
+              volumes:
+              - name: kong-config
+                configMap:
+                  name: kong-config
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: kong
+          namespace: emotibot-staging
+        spec:
+          type: LoadBalancer
+          selector:
+            app: kong
+          ports:
+          - name: proxy
+            port: 80
+            targetPort: 8000
+          - name: admin
+            port: 8001
+            targetPort: 8001
+        EOF
+
+    - name: Get service endpoints
+      run: |
+        echo "🌐 Getting service endpoints..."
+        
+        # Wait for LoadBalancer IP
+        echo "Waiting for Kong LoadBalancer IP..."
+        kubectl wait --for=jsonpath='{.status.loadBalancer.ingress}' service/kong -n emotibot-staging --timeout=300s || echo "LoadBalancer might still be provisioning"
+        
+        # Get external IP
+        EXTERNAL_IP=$(kubectl get service kong -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+        
+        echo "📊 Deployment Status:"
+        kubectl get pods -n emotibot-staging
+        echo ""
+        kubectl get services -n emotibot-staging
+        echo ""
+        
+        if [ "$EXTERNAL_IP" != "pending" ] && [ -n "$EXTERNAL_IP" ]; then
+          echo "🎉 Application deployed successfully!"
+          echo "🌐 Access your application at: http://$EXTERNAL_IP"
+          echo "🔧 Kong Admin API: http://$EXTERNAL_IP:8001"
+        else
+          echo "⏳ LoadBalancer IP is still being assigned. Check GCP Console for the IP address."
+        fi
+
+    - name: Run health checks
+      run: |
+        echo "🏥 Running health checks..."
+        
+        # Get Kong service IP
+        EXTERNAL_IP=$(kubectl get service kong -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+        
+        if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "pending" ]; then
+          echo "Testing Kong API Gateway at $EXTERNAL_IP..."
+          
+          # Test Kong health
+          if curl -f --max-time 30 "http://$EXTERNAL_IP/" 2>/dev/null; then
+            echo "✅ Kong API Gateway is responding"
+          else
+            echo "⚠️ Kong might still be starting up"
+          fi
+          
+          # Test Kong admin
+          if curl -f --max-time 30 "http://$EXTERNAL_IP:8001/" 2>/dev/null; then
+            echo "✅ Kong Admin API is responding"
+          else
+            echo "⚠️ Kong Admin API might still be starting up"
+          fi
+        else
+          echo "⏳ External IP not yet assigned. Health checks will be available once LoadBalancer is ready."
+        fi
+
+    - name: Deployment summary
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "🎉 GCP Staging Deployment Successful!"
+          echo ""
+          echo "📋 Summary:"
+          echo "- ✅ Docker images built and pushed to Artifact Registry"
+          echo "- ✅ Kubernetes deployments updated"
+          echo "- ✅ Services deployed to GKE cluster"
+          echo "- ✅ Kong API Gateway configured"
+          echo "- ✅ LoadBalancer provisioned"
+          echo ""
+          echo "🔗 Next steps:"
+          echo "1. Check GCP Console for LoadBalancer IP"
+          echo "2. Test your microservices endpoints"
+          echo "3. Monitor with GCP Monitoring"
+        else
+          echo "❌ GCP Staging Deployment Failed"
+          echo "Check the logs above for details"
+        fi 

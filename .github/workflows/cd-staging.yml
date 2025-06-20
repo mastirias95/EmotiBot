@@ -1,8 +1,9 @@
 name: CD - Deploy to Staging
 
 on:
-  push:
-    branches: [ main ]
+  # Temporarily disabled - no Kubernetes cluster configured
+  # push:
+  #   branches: [ main ]
   workflow_dispatch:
 
 env:
