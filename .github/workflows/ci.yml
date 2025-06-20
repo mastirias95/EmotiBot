@@ -216,8 +216,8 @@ jobs:
     - name: Start minimal test services
       run: |
         cd ./microservices
-        # Start only essential services for testing
-        docker compose -f docker-compose.test.yml up -d redis auth-service emotion-service
+        # Start only essential services for testing (Redis already running via GitHub Actions services)
+        docker compose -f docker-compose.test.yml up -d auth-service emotion-service
         sleep 45  # Wait for services to be ready
     
     - name: Basic integration test
