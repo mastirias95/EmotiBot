@@ -1,16 +1,106 @@
 version: 2
 updates:
+  # Main project dependencies
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"  # Check weekly instead of daily
+      interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "your-github-username"  # Replace with your username
-    assignees:
-      - "your-github-username"  # Replace with your username
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "deps"
-      include: "scope" 
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "security"
+  
+  # Auth service dependencies
+  - package-ecosystem: "pip"
+    directory: "/microservices/auth-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(auth)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "auth-service"
+  
+  # AI service dependencies
+  - package-ecosystem: "pip"
+    directory: "/microservices/ai-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "11:00"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(ai)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ai-service"
+  
+  # Emotion service dependencies
+  - package-ecosystem: "pip"
+    directory: "/microservices/emotion-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "12:00"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(emotion)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "emotion-service"
+  
+  # Conversation service dependencies
+  - package-ecosystem: "pip"
+    directory: "/microservices/conversation-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "13:00"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(conversation)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "conversation-service"
+  
+  # WebSocket service dependencies
+  - package-ecosystem: "pip"
+    directory: "/microservices/websocket-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "14:00"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(websocket)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "websocket-service"
+  
+  # Shared libraries dependencies
+  - package-ecosystem: "pip"
+    directory: "/microservices/shared-libs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "15:00"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "deps(shared)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "shared-libs" 
