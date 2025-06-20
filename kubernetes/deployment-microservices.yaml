@@ -1,0 +1,406 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-api-gateway
+  labels:
+    app: emotibot-api-gateway
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emotibot-api-gateway
+  template:
+    metadata:
+      labels:
+        app: emotibot-api-gateway
+        version: v1
+    spec:
+      containers:
+      - name: api-gateway
+        image: kong:3.4
+        ports:
+        - containerPort: 8000
+          name: proxy
+        - containerPort: 8001
+          name: admin
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_DECLARATIVE_CONFIG
+          value: "/kong.yml"
+        - name: KONG_PROXY_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_ADMIN_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_PROXY_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_LISTEN
+          value: "0.0.0.0:8001"
+        - name: KONG_PROXY_LISTEN
+          value: "0.0.0.0:8000"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-auth-service
+  labels:
+    app: emotibot-auth-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emotibot-auth-service
+  template:
+    metadata:
+      labels:
+        app: emotibot-auth-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: auth-service
+        image: emotibot-auth-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: AUTH_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: auth-database-url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: secret-key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: jwt-secret-key
+        - name: SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: service-secret
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-emotion-service
+  labels:
+    app: emotibot-emotion-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emotibot-emotion-service
+  template:
+    metadata:
+      labels:
+        app: emotibot-emotion-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8003"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: emotion-service
+        image: emotibot-emotion-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8003
+          name: http
+        env:
+        - name: AUTH_SERVICE_URL
+          value: "http://emotibot-auth-service:8002"
+        - name: SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: service-secret
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-conversation-service
+  labels:
+    app: emotibot-conversation-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emotibot-conversation-service
+  template:
+    metadata:
+      labels:
+        app: emotibot-conversation-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8004"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: conversation-service
+        image: emotibot-conversation-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8004
+          name: http
+        env:
+        - name: CONVERSATION_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: conversation-database-url
+        - name: AUTH_SERVICE_URL
+          value: "http://emotibot-auth-service:8002"
+        - name: EMOTION_SERVICE_URL
+          value: "http://emotibot-emotion-service:8003"
+        - name: AI_SERVICE_URL
+          value: "http://emotibot-ai-service:8005"
+        - name: SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: service-secret
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-ai-service
+  labels:
+    app: emotibot-ai-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emotibot-ai-service
+  template:
+    metadata:
+      labels:
+        app: emotibot-ai-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8005"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: ai-service
+        image: emotibot-ai-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8005
+          name: http
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: gemini-api-key
+        - name: AUTH_SERVICE_URL
+          value: "http://emotibot-auth-service:8002"
+        - name: SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: service-secret
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-websocket-service
+  labels:
+    app: emotibot-websocket-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emotibot-websocket-service
+  template:
+    metadata:
+      labels:
+        app: emotibot-websocket-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8006"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: websocket-service
+        image: emotibot-websocket-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8006
+          name: http
+        env:
+        - name: AUTH_SERVICE_URL
+          value: "http://emotibot-auth-service:8002"
+        - name: EMOTION_SERVICE_URL
+          value: "http://emotibot-emotion-service:8003"
+        - name: AI_SERVICE_URL
+          value: "http://emotibot-ai-service:8005"
+        - name: SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: service-secret
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3 
