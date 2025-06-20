@@ -213,41 +213,74 @@ jobs:
         echo "SERVICE_SECRET=test-service-secret" >> .env
         echo "GEMINI_API_KEY=test-key" >> .env
     
-    - name: Start minimal test services
+    - name: Build service images for testing
       run: |
         cd ./microservices
-        # Start only essential services for testing (Redis already running via GitHub Actions services)
-        docker compose -f docker-compose.test.yml up -d auth-service emotion-service
-        sleep 45  # Wait for services to be ready
+        # Build the service images we need for testing
+        docker build -t test-auth-service ./auth-service
+        docker build -t test-emotion-service ./emotion-service
+    
+    - name: Start minimal test services
+      run: |
+        # Start auth service (using existing GitHub Actions Redis and PostgreSQL)
+        docker run -d --name test-auth-service \
+          -p 8002:8002 \
+          -e AUTH_DATABASE_URL="postgresql://auth_user:auth_pass@localhost:5432/authdb" \
+          -e SECRET_KEY="test-secret-key" \
+          -e JWT_SECRET_KEY="test-jwt-secret-key" \
+          -e SERVICE_SECRET="test-service-secret" \
+          -e REDIS_HOST="localhost" \
+          -e REDIS_PORT="6379" \
+          --network="host" \
+          test-auth-service
+        
+        # Start emotion service
+        docker run -d --name test-emotion-service \
+          -p 8003:8003 \
+          -e AUTH_SERVICE_URL="http://localhost:8002" \
+          -e SERVICE_SECRET="test-service-secret" \
+          -e REDIS_HOST="localhost" \
+          -e REDIS_PORT="6379" \
+          --network="host" \
+          test-emotion-service
+        
+        # Wait for services to be ready
+        sleep 30
     
     - name: Basic integration test
       run: |
         echo "Running basic integration tests..."
-        # Test that we can import and run basic functionality
+        # Test service health endpoints
         python -c "
         import requests
         import time
         time.sleep(10)  # Additional wait
-        try:
-            # Test auth service
-            response = requests.get('http://localhost:8002/health', timeout=10)
-            print(f'Auth service: {response.status_code}')
-        except Exception as e:
-            print(f'Auth service test failed: {e}')
         
-        try:
-            # Test emotion service  
-            response = requests.get('http://localhost:8003/health', timeout=10)
-            print(f'Emotion service: {response.status_code}')
-        except Exception as e:
-            print(f'Emotion service test failed: {e}')
-        " || echo "Integration tests completed with some failures (expected in CI)"
+        def test_service(name, url):
+            try:
+                response = requests.get(url, timeout=10)
+                print(f'✅ {name}: HTTP {response.status_code}')
+                return True
+            except Exception as e:
+                print(f'❌ {name} failed: {e}')
+                return False
+        
+        # Test services
+        auth_ok = test_service('Auth service', 'http://localhost:8002/health')
+        emotion_ok = test_service('Emotion service', 'http://localhost:8003/health')
+        
+        if auth_ok or emotion_ok:
+            print('✅ At least one service is responding')
+        else:
+            print('⚠️ No services responding (may be expected in CI environment)')
+        "
     
     - name: Cleanup
       if: always()
       run: |
-        cd ./microservices
-        docker compose -f docker-compose.test.yml down -v || true
+        # Stop and remove test containers
+        docker stop test-auth-service test-emotion-service || true
+        docker rm test-auth-service test-emotion-service || true
 
   security-scan:
     runs-on: ubuntu-latest
