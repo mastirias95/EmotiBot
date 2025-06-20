@@ -1,0 +1,436 @@
+_format_version: "3.0"
+
+services:
+  # Auth Service
+  - name: auth-service
+    url: http://auth-service:8001
+    protocol: http
+    host: auth-service
+    port: 8001
+    retries: 3
+    connect_timeout: 10000
+    write_timeout: 10000
+    read_timeout: 10000
+
+  # Emotion Service
+  - name: emotion-service
+    url: http://emotion-service:8003
+    protocol: http
+    host: emotion-service
+    port: 8003
+    retries: 3
+    connect_timeout: 10000
+    write_timeout: 10000
+    read_timeout: 10000
+
+  # Conversation Service
+  - name: conversation-service
+    url: http://conversation-service:8004
+    protocol: http
+    host: conversation-service
+    port: 8004
+    retries: 3
+    connect_timeout: 10000
+    write_timeout: 10000
+    read_timeout: 10000
+
+  # AI Service
+  - name: ai-service
+    url: http://ai-service:8005
+    protocol: http
+    host: ai-service
+    port: 8005
+    retries: 3
+    connect_timeout: 10000
+    write_timeout: 10000
+    read_timeout: 10000
+
+  # WebSocket Service
+  - name: websocket-service
+    url: http://websocket-service:8006
+    protocol: http
+    host: websocket-service
+    port: 8006
+    retries: 3
+    connect_timeout: 10000
+    write_timeout: 10000
+    read_timeout: 10000
+
+routes:
+  # Auth Service Routes (Public - no JWT required)
+  - name: auth-register
+    service: auth-service
+    paths:
+      - /api/auth/register
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: auth-login
+    service: auth-service
+    paths:
+      - /api/auth/login
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: auth-refresh
+    service: auth-service
+    paths:
+      - /api/auth/refresh
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  # Protected Auth Routes
+  - name: auth-logout
+    service: auth-service
+    paths:
+      - /api/auth/logout
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  # Emotion Service Routes (Protected)
+  - name: emotion-analyze
+    service: emotion-service
+    paths:
+      - /api/analyze
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: emotion-batch
+    service: emotion-service
+    paths:
+      - /api/analyze/batch
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: emotion-stats
+    service: emotion-service
+    paths:
+      - /api/emotions/stats
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+  - name: emotion-validate
+    service: emotion-service
+    paths:
+      - /api/emotions/validate
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  # Conversation Service Routes (Protected)
+  - name: conversation-history
+    service: conversation-service
+    paths:
+      - /api/conversations/history
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-insights
+    service: conversation-service
+    paths:
+      - /api/conversations/insights
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-save
+    service: conversation-service
+    paths:
+      - /api/conversations
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  # AI Service Routes (Protected)
+  - name: ai-generate-response
+    service: ai-service
+    paths:
+      - /api/ai/generate
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: ai-mood-insights
+    service: ai-service
+    paths:
+      - /api/ai/insights
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  # WebSocket Routes
+  - name: websocket-connection
+    service: websocket-service
+    paths:
+      - /socket.io
+    strip_path: false
+    preserve_host: false
+
+  # Health Check Routes (Public)
+  - name: health-checks
+    service: auth-service
+    paths:
+      - /health
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+# Global Plugins
+plugins:
+  # CORS Plugin (Applied to all routes)
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - HEAD
+        - PATCH
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Requested-With
+        - X-Request-ID
+        - X-Service-Name
+      exposed_headers:
+        - X-Request-ID
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+      credentials: true
+      max_age: 3600
+
+  # Global Rate Limiting
+  - name: rate-limiting
+    config:
+      minute: 1000
+      hour: 10000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+
+  # Request/Response Logging
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: true
+
+# Consumer and JWT Configuration
+consumers:
+  - username: emotibot-frontend
+    custom_id: frontend-client
+
+  - username: emotibot-mobile
+    custom_id: mobile-client
+
+# Plugin configurations per route
+_plugin_configs:
+  # Protected routes plugins
+  protected_routes: &protected_plugins
+    - name: jwt
+      config:
+        header_names:
+          - authorization
+        uri_param_names:
+          - jwt
+        claims_to_verify:
+          - exp
+        key_claim_name: iss
+        secret_is_base64: false
+        run_on_preflight: true
+
+    - name: rate-limiting
+      config:
+        minute: 100
+        hour: 1000
+        policy: local
+        fault_tolerant: true
+
+  # High-traffic routes (emotion analysis)
+  emotion_routes: &emotion_plugins
+    - name: rate-limiting
+      config:
+        minute: 200
+        hour: 2000
+        policy: local
+        fault_tolerant: true
+
+  # AI routes (more restrictive)
+  ai_routes: &ai_plugins
+    - name: rate-limiting
+      config:
+        minute: 60
+        hour: 500
+        policy: local
+        fault_tolerant: true
+
+# Route-specific plugin assignments
+route_plugins:
+  # Apply JWT and rate limiting to protected routes
+  emotion-analyze:
+    plugins: *emotion_plugins
+  
+  emotion-batch:
+    plugins: *emotion_plugins
+  
+  emotion-stats:
+    plugins: *protected_plugins
+  
+  emotion-validate:
+    plugins: *protected_plugins
+  
+  conversation-history:
+    plugins: *protected_plugins
+  
+  conversation-insights:
+    plugins: *protected_plugins
+  
+  conversation-save:
+    plugins: *protected_plugins
+  
+  ai-generate-response:
+    plugins: *ai_plugins
+  
+  ai-mood-insights:
+    plugins: *ai_plugins
+  
+  auth-logout:
+    plugins: *protected_plugins
+
+# Upstream configurations for load balancing
+upstreams:
+  - name: auth-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    healthchecks:
+      active:
+        http_path: /health
+        healthy:
+          interval: 5
+          successes: 3
+        unhealthy:
+          interval: 5
+          http_failures: 3
+      passive:
+        healthy:
+          successes: 3
+        unhealthy:
+          http_failures: 3
+    targets:
+      - target: auth-service:8001
+        weight: 100
+
+  - name: emotion-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    healthchecks:
+      active:
+        http_path: /health
+        healthy:
+          interval: 5
+          successes: 3
+        unhealthy:
+          interval: 5
+          http_failures: 3
+      passive:
+        healthy:
+          successes: 3
+        unhealthy:
+          http_failures: 3
+    targets:
+      - target: emotion-service:8003
+        weight: 100
+
+  - name: conversation-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    healthchecks:
+      active:
+        http_path: /health
+        healthy:
+          interval: 5
+          successes: 3
+        unhealthy:
+          interval: 5
+          http_failures: 3
+      passive:
+        healthy:
+          successes: 3
+        unhealthy:
+          http_failures: 3
+    targets:
+      - target: conversation-service:8004
+        weight: 100
+
+  - name: ai-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    healthchecks:
+      active:
+        http_path: /health
+        healthy:
+          interval: 10
+          successes: 3
+        unhealthy:
+          interval: 10
+          http_failures: 3
+      passive:
+        healthy:
+          successes: 3
+        unhealthy:
+          http_failures: 3
+    targets:
+      - target: ai-service:8005
+        weight: 100
+
+  - name: websocket-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    healthchecks:
+      active:
+        http_path: /health
+        healthy:
+          interval: 5
+          successes: 3
+        unhealthy:
+          interval: 5
+          http_failures: 3
+      passive:
+        healthy:
+          successes: 3
+        unhealthy:
+          http_failures: 3
+    targets:
+      - target: websocket-service:8006
+        weight: 100 

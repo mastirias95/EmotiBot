@@ -1,0 +1,210 @@
+version: '3.8'
+
+services:
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - demo-network
+    restart: unless-stopped
+
+  # Auth Service Database
+  auth-db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=auth_user
+      - POSTGRES_PASSWORD=auth_pass
+      - POSTGRES_DB=authdb
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d authdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Conversation Service Database
+  conversation-db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=conv_user
+      - POSTGRES_PASSWORD=conv_pass
+      - POSTGRES_DB=conversationdb
+    volumes:
+      - conversation_db_data:/var/lib/postgresql/data
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U conv_user -d conversationdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Frontend Web Interface
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - demo-network
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - emotion-service
+
+  # Auth Service
+  auth-service:
+    build: 
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - AUTH_DATABASE_URL=postgresql://auth_user:auth_pass@auth-db:5432/authdb
+      - SECRET_KEY=demo-secret-key
+      - JWT_SECRET_KEY=demo-jwt-secret-key
+      - SERVICE_SECRET=demo-service-secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_ENABLED=false
+    depends_on:
+      - auth-db
+      - redis
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Emotion Service
+  emotion-service:
+    build:
+      context: ./emotion-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8002
+      - SERVICE_SECRET=demo-service-secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_ENABLED=false
+    depends_on:
+      - auth-service
+      - redis
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Conversation Service
+  conversation-service:
+    build:
+      context: ./conversation-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - CONVERSATION_DATABASE_URL=postgresql://conv_user:conv_pass@conversation-db:5432/conversationdb
+      - AUTH_SERVICE_URL=http://auth-service:8002
+      - EMOTION_SERVICE_URL=http://emotion-service:8003
+      - SERVICE_SECRET=demo-service-secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_ENABLED=false
+    depends_on:
+      - conversation-db
+      - auth-service
+      - emotion-service
+      - redis
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - GEMINI_MOCK_MODE=true
+      - AUTH_SERVICE_URL=http://auth-service:8002
+      - SERVICE_SECRET=demo-service-secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_ENABLED=false
+    depends_on:
+      - auth-service
+      - redis
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # WebSocket Service
+  websocket-service:
+    build:
+      context: ./websocket-service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8002
+      - EMOTION_SERVICE_URL=http://emotion-service:8003
+      - AI_SERVICE_URL=http://ai-service:8005
+      - SERVICE_SECRET=demo-service-secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_ENABLED=false
+    depends_on:
+      - auth-service
+      - emotion-service
+      - ai-service
+      - redis
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  auth_db_data:
+  conversation_db_data:
+
+networks:
+  demo-network:
+    driver: bridge 

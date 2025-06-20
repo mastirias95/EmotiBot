@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmotiBot - Microservices Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            margin-top: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            gap: 2rem;
+            width: 100%;
+        }
+
+        .services-panel {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .demo-panel {
+            flex: 2;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panel-title {
+            color: white;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .service-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .service-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .service-name {
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .service-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff6b6b;
+        }
+
+        .status-indicator.healthy {
+            background: #51cf66;
+        }
+
+        .status-text {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .demo-section {
+            margin-bottom: 2rem;
+        }
+
+        .demo-section h3 {
+            color: white;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .input-group input::placeholder, .input-group textarea::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-right: 0.5rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 100px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            overflow-y: auto;
+        }
+
+        .auth-section {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .auth-section .input-group {
+            flex: 1;
+        }
+
+        .footer {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                margin: 1rem auto;
+                padding: 0 1rem;
+            }
+            
+            .auth-section {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🤖 EmotiBot</h1>
+        <p class="subtitle">Microservices Architecture Demonstration</p>
+    </header>
+
+    <div class="container">
+        <div class="services-panel">
+            <h2 class="panel-title">🔧 Microservices Status</h2>
+            
+            <div class="service-item">
+                <div class="service-name">Auth Service</div>
+                <div class="service-status">
+                    <div class="status-indicator" id="auth-status"></div>
+                    <span class="status-text" id="auth-text">Checking...</span>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-name">Emotion Service</div>
+                <div class="service-status">
+                    <div class="status-indicator" id="emotion-status"></div>
+                    <span class="status-text" id="emotion-service-text">Checking...</span>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-name">Conversation Service</div>
+                <div class="service-status">
+                    <div class="status-indicator" id="conversation-status"></div>
+                    <span class="status-text" id="conversation-text">Checking...</span>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-name">AI Service</div>
+                <div class="service-status">
+                    <div class="status-indicator" id="ai-status"></div>
+                    <span class="status-text" id="ai-text">Checking...</span>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-name">WebSocket Service</div>
+                <div class="service-status">
+                    <div class="status-indicator" id="websocket-status"></div>
+                    <span class="status-text" id="websocket-text">Checking...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-panel">
+            <h2 class="panel-title">🎯 Live Demo</h2>
+
+            <!-- Authentication Section -->
+            <div class="demo-section">
+                <h3>👤 Authentication</h3>
+                <div id="auth-status" style="margin-bottom: 10px; padding: 8px; border-radius: 4px; display: none;">
+                    <strong>Status:</strong> <span id="auth-status-text">Not logged in</span>
+                </div>
+                <div class="auth-section">
+                    <div class="input-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" placeholder="Enter username" value="demo_student">
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" placeholder="Enter password" value="password123">
+                    </div>
+                </div>
+                <button class="btn" onclick="registerUser()">Register</button>
+                <button class="btn" onclick="loginUser()">Login</button>
+                <div class="result-box" id="auth-result">Authentication results will appear here...</div>
+            </div>
+
+            <!-- Emotion Analysis Section -->
+            <div class="demo-section">
+                <h3>😊 Emotion Analysis</h3>
+                <div class="input-group">
+                    <label for="emotion-text">Text to Analyze:</label>
+                    <textarea id="emotion-text" rows="3" placeholder="Enter text to analyze emotions...">I'm feeling really happy today! This microservices demo is amazing!</textarea>
+                </div>
+                <button class="btn" onclick="analyzeEmotion()">Analyze Emotion</button>
+                <button class="btn" onclick="testEmotionButton()" style="margin-left: 10px; background-color: #6c757d;">Test Button</button>
+                <div class="result-box" id="emotion-result">Emotion analysis results will appear here...</div>
+            </div>
+
+            <!-- AI Response Section -->
+            <div class="demo-section">
+                <h3>🧠 AI Response</h3>
+                <div class="input-group">
+                    <label for="ai-prompt">Message:</label>
+                    <textarea id="ai-prompt" rows="3" placeholder="Ask the AI something...">Tell me about microservices architecture</textarea>
+                </div>
+                <button class="btn" onclick="getAIResponse()">Get AI Response</button>
+                <div class="result-box" id="ai-result">AI responses will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>EmotiBot Microservices Demo - ICT & Software Engineering Project</p>
+    </footer>
+
+    <script>
+        let authToken = null;
+
+        // Service URLs
+        const services = {
+            auth: 'http://localhost:8002',
+            emotion: 'http://localhost:8003',
+            conversation: 'http://localhost:8004',
+            ai: 'http://localhost:8005',
+            websocket: 'http://localhost:8006'
+        };
+
+        // Check service health
+        async function checkServiceHealth() {
+            const serviceChecks = [
+                { name: 'auth', url: services.auth },
+                { name: 'emotion', url: services.emotion },
+                { name: 'conversation', url: services.conversation },
+                { name: 'ai', url: services.ai },
+                { name: 'websocket', url: services.websocket }
+            ];
+
+            for (const service of serviceChecks) {
+                try {
+                    const response = await fetch(`${service.url}/health`, {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
+                    
+                    if (response.ok) {
+                        updateServiceStatus(service.name, true, 'Healthy');
+                    } else {
+                        updateServiceStatus(service.name, false, `Error: ${response.status}`);
+                    }
+                } catch (error) {
+                    updateServiceStatus(service.name, false, 'Offline');
+                }
+            }
+        }
+
+        function updateServiceStatus(serviceName, isHealthy, statusText) {
+            const statusIndicator = document.getElementById(`${serviceName}-status`);
+            
+            // Handle special case for emotion service
+            let statusTextElementId = `${serviceName}-text`;
+            if (serviceName === 'emotion') {
+                statusTextElementId = 'emotion-service-text';
+            }
+            
+            const statusTextElement = document.getElementById(statusTextElementId);
+            
+            if (isHealthy) {
+                statusIndicator.classList.add('healthy');
+            } else {
+                statusIndicator.classList.remove('healthy');
+            }
+            
+            statusTextElement.textContent = statusText;
+        }
+
+        // Authentication functions
+        async function registerUser() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                document.getElementById('auth-result').textContent = 'Please enter both username and password';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${services.auth}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: `${username}@demo.com`,
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+                document.getElementById('auth-result').textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('auth-result').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loginUser() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                document.getElementById('auth-result').textContent = 'Please enter both username and password';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${services.auth}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+                if (result.token) {
+                    authToken = result.token;
+                    document.getElementById('auth-result').textContent = `Login successful!\nToken: ${result.token.substring(0, 50)}...`;
+                    
+                    // Update auth status
+                    const authStatus = document.getElementById('auth-status');
+                    const authStatusText = document.getElementById('auth-status-text');
+                    authStatus.style.display = 'block';
+                    authStatus.style.backgroundColor = '#d4edda';
+                    authStatus.style.color = '#155724';
+                    authStatus.style.border = '1px solid #c3e6cb';
+                    authStatusText.textContent = 'Logged in successfully - You can now use Emotion Analysis and AI Response!';
+                } else {
+                    document.getElementById('auth-result').textContent = JSON.stringify(result, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('auth-result').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Emotion analysis
+        async function analyzeEmotion() {
+            console.log('analyzeEmotion function called'); // Debug log
+            
+            // Check if element exists
+            const textElement = document.getElementById('emotion-text');
+            if (!textElement) {
+                console.error('emotion-text element not found!');
+                document.getElementById('emotion-result').textContent = 'Error: Text input element not found. Please refresh the page.';
+                return;
+            }
+            
+            const text = textElement.value ? textElement.value.trim() : '';
+            console.log('Text to analyze:', text); // Debug log
+            
+            if (!text) {
+                document.getElementById('emotion-result').textContent = 'Please enter text to analyze';
+                return;
+            }
+
+            if (!authToken) {
+                document.getElementById('emotion-result').textContent = 'Please login first to use emotion analysis';
+                return;
+            }
+
+            // Show loading message
+            document.getElementById('emotion-result').textContent = 'Analyzing emotion...';
+            
+            try {
+                console.log('Making request to emotion service...'); // Debug log
+                
+                const response = await fetch(`${services.emotion}/api/emotion/detect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                console.log('Response received:', response.status); // Debug log
+                
+                const result = await response.json();
+                console.log('Result:', result); // Debug log
+                
+                if (response.ok) {
+                    document.getElementById('emotion-result').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    document.getElementById('emotion-result').textContent = `Error: ${result.error || 'Unknown error'}`;
+                }
+            } catch (error) {
+                console.error('Network error:', error); // Debug log
+                document.getElementById('emotion-result').textContent = `Network Error: ${error.message}`;
+            }
+        }
+
+        // AI response
+        async function getAIResponse() {
+            const message = document.getElementById('ai-prompt').value.trim();
+            
+            if (!message) {
+                document.getElementById('ai-result').textContent = 'Please enter a message';
+                return;
+            }
+
+            if (!authToken) {
+                document.getElementById('ai-result').textContent = 'Please login first to use AI response';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${services.ai}/api/ai/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ 
+                        message: message,
+                        context: 'demo'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('ai-result').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    document.getElementById('ai-result').textContent = `Error: ${result.error || 'Unknown error'}`;
+                }
+            } catch (error) {
+                document.getElementById('ai-result').textContent = `Network Error: ${error.message}`;
+            }
+        }
+
+        // Test function for debugging
+        function testEmotionButton() {
+            console.log('Test button clicked');
+            
+            // Check if emotion-text element exists
+            const emotionTextElement = document.getElementById('emotion-text');
+            console.log('emotion-text element:', emotionTextElement);
+            
+            if (emotionTextElement) {
+                console.log('emotion-text value:', emotionTextElement.value);
+                document.getElementById('emotion-result').textContent = `Test successful! Found emotion-text element with value: "${emotionTextElement.value}"`;
+            } else {
+                document.getElementById('emotion-result').textContent = 'ERROR: emotion-text element not found!';
+            }
+            
+            alert('Test button clicked! Check the emotion result box and browser console.');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServiceHealth();
+            
+            // Check health every 30 seconds
+            setInterval(checkServiceHealth, 30000);
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,4 @@
+requests==2.31.0
+tenacity==8.2.3
+prometheus_client==0.17.1
+cryptography==41.0.4 

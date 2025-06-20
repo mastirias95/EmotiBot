@@ -1,0 +1,206 @@
+name: CD - Deploy to Staging
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Configure kubectl for staging
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+        kubectl config current-context
+    
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace emotibot-staging --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Create secrets
+      run: |
+        kubectl create secret generic emotibot-secrets \
+          --from-literal=secret-key="${{ secrets.SECRET_KEY }}" \
+          --from-literal=jwt-secret-key="${{ secrets.JWT_SECRET_KEY }}" \
+          --from-literal=service-secret="${{ secrets.SERVICE_SECRET }}" \
+          --from-literal=gemini-api-key="${{ secrets.GEMINI_API_KEY }}" \
+          --from-literal=auth-db-password="${{ secrets.AUTH_DB_PASSWORD }}" \
+          --from-literal=conv-db-password="${{ secrets.CONV_DB_PASSWORD }}" \
+          --namespace emotibot-staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Deploy PostgreSQL databases
+      run: |
+        cd kubernetes
+        # Apply PostgreSQL deployments with staging namespace
+        sed 's/namespace: default/namespace: emotibot-staging/g' postgres-deployment.yaml | kubectl apply -f -
+        sed 's/namespace: default/namespace: emotibot-staging/g' postgres-service.yaml | kubectl apply -f -
+        sed 's/namespace: default/namespace: emotibot-staging/g' postgres-pvc.yaml | kubectl apply -f -
+    
+    - name: Deploy Redis
+      run: |
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: redis
+          namespace: emotibot-staging
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: redis
+          template:
+            metadata:
+              labels:
+                app: redis
+            spec:
+              containers:
+              - name: redis
+                image: redis:7-alpine
+                ports:
+                - containerPort: 6379
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: redis
+          namespace: emotibot-staging
+        spec:
+          selector:
+            app: redis
+          ports:
+          - port: 6379
+            targetPort: 6379
+        EOF
+    
+    - name: Deploy microservices
+      run: |
+        cd kubernetes
+        
+        # Update image tags to use the latest from main
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        
+        for service in "${services[@]}"; do
+          # Apply deployment with updated image
+          sed -e "s|image: .*/${service}:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${service}:main|g" \
+              -e "s/namespace: default/namespace: emotibot-staging/g" \
+              deployment-microservices.yaml | kubectl apply -f -
+        done
+        
+        # Apply services
+        sed 's/namespace: default/namespace: emotibot-staging/g' services-microservices.yaml | kubectl apply -f -
+    
+    - name: Deploy Kong API Gateway
+      run: |
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: kong
+          namespace: emotibot-staging
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: kong
+          template:
+            metadata:
+              labels:
+                app: kong
+            spec:
+              containers:
+              - name: kong
+                image: kong:3.4
+                env:
+                - name: KONG_DATABASE
+                  value: "off"
+                - name: KONG_DECLARATIVE_CONFIG
+                  value: /kong.yml
+                - name: KONG_PROXY_ACCESS_LOG
+                  value: /dev/stdout
+                - name: KONG_ADMIN_ACCESS_LOG
+                  value: /dev/stdout
+                - name: KONG_PROXY_ERROR_LOG
+                  value: /dev/stderr
+                - name: KONG_ADMIN_ERROR_LOG
+                  value: /dev/stderr
+                - name: KONG_ADMIN_LISTEN
+                  value: "0.0.0.0:8001"
+                - name: KONG_PROXY_LISTEN
+                  value: "0.0.0.0:8000"
+                ports:
+                - containerPort: 8000
+                - containerPort: 8001
+                volumeMounts:
+                - name: kong-config
+                  mountPath: /kong.yml
+                  subPath: kong.yml
+              volumes:
+              - name: kong-config
+                configMap:
+                  name: kong-config
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: kong
+          namespace: emotibot-staging
+        spec:
+          type: LoadBalancer
+          selector:
+            app: kong
+          ports:
+          - name: proxy
+            port: 8000
+            targetPort: 8000
+          - name: admin
+            port: 8001
+            targetPort: 8001
+        EOF
+    
+    - name: Wait for deployments to be ready
+      run: |
+        kubectl wait --for=condition=available --timeout=300s deployment --all -n emotibot-staging
+    
+    - name: Run health checks
+      run: |
+        echo "Waiting for services to be healthy..."
+        sleep 60
+        
+        # Get service URLs
+        KONG_URL=$(kubectl get service kong -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        if [ -z "$KONG_URL" ]; then
+          KONG_URL=$(kubectl get service kong -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        fi
+        
+        if [ -n "$KONG_URL" ]; then
+          echo "Testing Kong API Gateway at $KONG_URL:8000"
+          curl -f "http://$KONG_URL:8000/health" || echo "Kong health check failed"
+        else
+          echo "Could not determine Kong service URL"
+        fi
+    
+    - name: Post deployment notification
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Staging deployment completed successfully"
+        else
+          echo "❌ Staging deployment failed"
+        fi 

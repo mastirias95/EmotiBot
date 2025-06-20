@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: emotibot-api-gateway
+  labels:
+    app: emotibot-api-gateway
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: proxy
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: admin
+  selector:
+    app: emotibot-api-gateway
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emotibot-auth-service
+  labels:
+    app: emotibot-auth-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8002
+    targetPort: 8002
+    protocol: TCP
+    name: http
+  selector:
+    app: emotibot-auth-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emotibot-emotion-service
+  labels:
+    app: emotibot-emotion-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8003
+    targetPort: 8003
+    protocol: TCP
+    name: http
+  selector:
+    app: emotibot-emotion-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emotibot-conversation-service
+  labels:
+    app: emotibot-conversation-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8004
+    targetPort: 8004
+    protocol: TCP
+    name: http
+  selector:
+    app: emotibot-conversation-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emotibot-ai-service
+  labels:
+    app: emotibot-ai-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8005
+    targetPort: 8005
+    protocol: TCP
+    name: http
+  selector:
+    app: emotibot-ai-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emotibot-websocket-service
+  labels:
+    app: emotibot-websocket-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8006
+    targetPort: 8006
+    protocol: TCP
+    name: http
+  selector:
+    app: emotibot-websocket-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+    name: redis
+  selector:
+    app: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  labels:
+    app: auth-db
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: auth-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conversation-db
+  labels:
+    app: conversation-db
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: conversation-db 

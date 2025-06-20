@@ -1,0 +1,241 @@
+{
+  "rabbit_version": "3.12.0",
+  "rabbitmq_version": "3.12.0",
+  "product_name": "RabbitMQ",
+  "product_version": "3.12.0",
+  "users": [
+    {
+      "name": "emotibot",
+      "password_hash": "emotibot_pass",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "administrator"
+    },
+    {
+      "name": "auth-service",
+      "password_hash": "auth_service_pass",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "service"
+    },
+    {
+      "name": "emotion-service",
+      "password_hash": "emotion_service_pass",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "service"
+    },
+    {
+      "name": "conversation-service",
+      "password_hash": "conversation_service_pass",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "service"
+    },
+    {
+      "name": "ai-service",
+      "password_hash": "ai_service_pass",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "service"
+    },
+    {
+      "name": "websocket-service",
+      "password_hash": "websocket_service_pass",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "service"
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "emotibot",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "auth-service",
+      "vhost": "/",
+      "configure": "auth.*",
+      "write": "auth.*",
+      "read": "auth.*"
+    },
+    {
+      "user": "emotion-service",
+      "vhost": "/",
+      "configure": "emotion.*",
+      "write": "emotion.*",
+      "read": "emotion.*"
+    },
+    {
+      "user": "conversation-service",
+      "vhost": "/",
+      "configure": "conversation.*",
+      "write": "conversation.*",
+      "read": "conversation.*"
+    },
+    {
+      "user": "ai-service",
+      "vhost": "/",
+      "configure": "ai.*",
+      "write": "ai.*",
+      "read": "ai.*"
+    },
+    {
+      "user": "websocket-service",
+      "vhost": "/",
+      "configure": "websocket.*",
+      "write": "websocket.*",
+      "read": "websocket.*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "emotibot.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "emotibot.notifications",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "emotibot.analytics",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "user.registration",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 86400000,
+        "x-dead-letter-exchange": "emotibot.dlq"
+      }
+    },
+    {
+      "name": "emotion.analysis",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 3600000,
+        "x-dead-letter-exchange": "emotibot.dlq"
+      }
+    },
+    {
+      "name": "conversation.insights",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 7200000,
+        "x-dead-letter-exchange": "emotibot.dlq"
+      }
+    },
+    {
+      "name": "ai.response.generation",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 300000,
+        "x-dead-letter-exchange": "emotibot.dlq"
+      }
+    },
+    {
+      "name": "websocket.notifications",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 60000,
+        "x-dead-letter-exchange": "emotibot.dlq"
+      }
+    },
+    {
+      "name": "analytics.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 86400000,
+        "x-dead-letter-exchange": "emotibot.dlq"
+      }
+    },
+    {
+      "name": "emotibot.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "emotibot.events",
+      "vhost": "/",
+      "destination": "user.registration",
+      "destination_type": "queue",
+      "routing_key": "user.registered",
+      "arguments": {}
+    },
+    {
+      "source": "emotibot.events",
+      "vhost": "/",
+      "destination": "emotion.analysis",
+      "destination_type": "queue",
+      "routing_key": "emotion.analyze",
+      "arguments": {}
+    },
+    {
+      "source": "emotibot.events",
+      "vhost": "/",
+      "destination": "conversation.insights",
+      "destination_type": "queue",
+      "routing_key": "conversation.updated",
+      "arguments": {}
+    },
+    {
+      "source": "emotibot.events",
+      "vhost": "/",
+      "destination": "ai.response.generation",
+      "destination_type": "queue",
+      "routing_key": "ai.generate",
+      "arguments": {}
+    },
+    {
+      "source": "emotibot.notifications",
+      "vhost": "/",
+      "destination": "websocket.notifications",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    },
+    {
+      "source": "emotibot.analytics",
+      "vhost": "/",
+      "destination": "analytics.events",
+      "destination_type": "queue",
+      "routing_key": "analytics.event",
+      "arguments": {}
+    }
+  ]
+} 
