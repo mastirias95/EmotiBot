@@ -84,6 +84,8 @@ jobs:
   build-images:
     needs: lint-and-test
     runs-on: ubuntu-latest
+    # Skip Docker builds for Dependabot PRs (they can't push to registry)
+    if: github.actor != 'dependabot[bot]'
     strategy:
       matrix:
         service: [auth-service, emotion-service, conversation-service, ai-service, websocket-service]
@@ -125,6 +127,8 @@ jobs:
   integration-tests:
     needs: build-images
     runs-on: ubuntu-latest
+    # Skip integration tests for Dependabot PRs (they depend on Docker images)
+    if: github.actor != 'dependabot[bot]'
     
     services:
       redis:
