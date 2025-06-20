@@ -1,0 +1,396 @@
+name: CD - Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to deploy (e.g., v1.0.0 or main)'
+        required: true
+        default: 'main'
+      confirm_production:
+        description: 'Type "PRODUCTION" to confirm production deployment'
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate-input:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Validate production confirmation
+      run: |
+        if [ "${{ github.event.inputs.confirm_production }}" != "PRODUCTION" ]; then
+          echo "❌ Production deployment not confirmed"
+          echo "Please type 'PRODUCTION' in the confirm_production field"
+          exit 1
+        fi
+        echo "✅ Production deployment confirmed"
+
+  pre-deployment-checks:
+    needs: validate-input
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Verify image exists
+      run: |
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        
+        for service in "${services[@]}"; do
+          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${service}:${{ github.event.inputs.version }}"
+          echo "Checking if $image exists..."
+          
+          # Check if image exists (this is a simplified check)
+          docker manifest inspect "$image" > /dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ $service image found"
+          else
+            echo "❌ $service image not found: $image"
+            exit 1
+          fi
+        done
+
+  deploy-production:
+    needs: [validate-input, pre-deployment-checks]
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Configure kubectl for production
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+        kubectl config current-context
+    
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace emotibot-production --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Backup current deployment
+      run: |
+        kubectl get deployment -n emotibot-production -o yaml > backup-deployment-$(date +%Y%m%d-%H%M%S).yaml
+        echo "Backup created: backup-deployment-$(date +%Y%m%d-%H%M%S).yaml"
+    
+    - name: Create/Update secrets
+      run: |
+        kubectl create secret generic emotibot-secrets \
+          --from-literal=secret-key="${{ secrets.PROD_SECRET_KEY }}" \
+          --from-literal=jwt-secret-key="${{ secrets.PROD_JWT_SECRET_KEY }}" \
+          --from-literal=service-secret="${{ secrets.PROD_SERVICE_SECRET }}" \
+          --from-literal=gemini-api-key="${{ secrets.PROD_GEMINI_API_KEY }}" \
+          --from-literal=auth-db-password="${{ secrets.PROD_AUTH_DB_PASSWORD }}" \
+          --from-literal=conv-db-password="${{ secrets.PROD_CONV_DB_PASSWORD }}" \
+          --namespace emotibot-production \
+          --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Deploy PostgreSQL databases (if not exists)
+      run: |
+        cd kubernetes
+        
+        # Check if databases already exist
+        if ! kubectl get deployment postgres-auth -n emotibot-production > /dev/null 2>&1; then
+          echo "Deploying PostgreSQL databases..."
+          sed 's/namespace: default/namespace: emotibot-production/g' postgres-deployment.yaml | kubectl apply -f -
+          sed 's/namespace: default/namespace: emotibot-production/g' postgres-service.yaml | kubectl apply -f -
+          sed 's/namespace: default/namespace: emotibot-production/g' postgres-pvc.yaml | kubectl apply -f -
+          
+          # Wait for databases to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment -l app=postgres -n emotibot-production
+        else
+          echo "PostgreSQL databases already exist, skipping..."
+        fi
+    
+    - name: Deploy Redis (if not exists)
+      run: |
+        if ! kubectl get deployment redis -n emotibot-production > /dev/null 2>&1; then
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: redis
+            namespace: emotibot-production
+          spec:
+            replicas: 2  # High availability for production
+            selector:
+              matchLabels:
+                app: redis
+            template:
+              metadata:
+                labels:
+                  app: redis
+              spec:
+                containers:
+                - name: redis
+                  image: redis:7-alpine
+                  ports:
+                  - containerPort: 6379
+                  resources:
+                    requests:
+                      memory: "64Mi"
+                      cpu: "50m"
+                    limits:
+                      memory: "128Mi"
+                      cpu: "100m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: redis
+            namespace: emotibot-production
+          spec:
+            selector:
+              app: redis
+            ports:
+            - port: 6379
+              targetPort: 6379
+          EOF
+        else
+          echo "Redis already exists, skipping..."
+        fi
+    
+    - name: Deploy microservices with rolling update
+      run: |
+        cd kubernetes
+        
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        
+        for service in "${services[@]}"; do
+          echo "Deploying $service..."
+          
+          # Update deployment with new image
+          sed -e "s|image: .*/${service}:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${service}:${{ github.event.inputs.version }}|g" \
+              -e "s/namespace: default/namespace: emotibot-production/g" \
+              -e "s/replicas: 1/replicas: 3/g" \
+              deployment-microservices.yaml | kubectl apply -f -
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/${service} -n emotibot-production --timeout=300s
+          
+          echo "✅ $service deployed successfully"
+        done
+        
+        # Apply services
+        sed 's/namespace: default/namespace: emotibot-production/g' services-microservices.yaml | kubectl apply -f -
+    
+    - name: Deploy Kong API Gateway
+      run: |
+        # Create Kong config
+        kubectl create configmap kong-config \
+          --from-file=kong.yml=microservices/api-gateway/kong.yml \
+          --namespace emotibot-production \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: kong
+          namespace: emotibot-production
+        spec:
+          replicas: 3  # High availability for production
+          selector:
+            matchLabels:
+              app: kong
+          template:
+            metadata:
+              labels:
+                app: kong
+            spec:
+              containers:
+              - name: kong
+                image: kong:3.4
+                env:
+                - name: KONG_DATABASE
+                  value: "off"
+                - name: KONG_DECLARATIVE_CONFIG
+                  value: /kong.yml
+                - name: KONG_PROXY_ACCESS_LOG
+                  value: /dev/stdout
+                - name: KONG_ADMIN_ACCESS_LOG
+                  value: /dev/stdout
+                - name: KONG_PROXY_ERROR_LOG
+                  value: /dev/stderr
+                - name: KONG_ADMIN_ERROR_LOG
+                  value: /dev/stderr
+                - name: KONG_ADMIN_LISTEN
+                  value: "0.0.0.0:8001"
+                - name: KONG_PROXY_LISTEN
+                  value: "0.0.0.0:8000"
+                ports:
+                - containerPort: 8000
+                - containerPort: 8001
+                resources:
+                  requests:
+                    memory: "128Mi"
+                    cpu: "100m"
+                  limits:
+                    memory: "256Mi"
+                    cpu: "200m"
+                volumeMounts:
+                - name: kong-config
+                  mountPath: /kong.yml
+                  subPath: kong.yml
+              volumes:
+              - name: kong-config
+                configMap:
+                  name: kong-config
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: kong
+          namespace: emotibot-production
+        spec:
+          type: LoadBalancer
+          selector:
+            app: kong
+          ports:
+          - name: proxy
+            port: 80
+            targetPort: 8000
+          - name: admin
+            port: 8001
+            targetPort: 8001
+        EOF
+    
+    - name: Set up Horizontal Pod Autoscaling
+      run: |
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        
+        for service in "${services[@]}"; do
+          kubectl apply -f - <<EOF
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: ${service}-hpa
+            namespace: emotibot-production
+          spec:
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: ${service}
+            minReplicas: 2
+            maxReplicas: 10
+            metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: 70
+            - type: Resource
+              resource:
+                name: memory
+                target:
+                  type: Utilization
+                  averageUtilization: 80
+          EOF
+        done
+    
+    - name: Wait for all deployments to be ready
+      run: |
+        echo "Waiting for all deployments to be ready..."
+        kubectl wait --for=condition=available --timeout=600s deployment --all -n emotibot-production
+    
+    - name: Run comprehensive health checks
+      run: |
+        echo "Running post-deployment health checks..."
+        sleep 90  # Wait for services to fully initialize
+        
+        # Get Kong service URL
+        KONG_URL=$(kubectl get service kong -n emotibot-production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        if [ -z "$KONG_URL" ]; then
+          KONG_URL=$(kubectl get service kong -n emotibot-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        fi
+        
+        if [ -n "$KONG_URL" ]; then
+          echo "Testing production API Gateway at $KONG_URL"
+          
+          # Test health endpoint
+          if curl -f -m 10 "http://$KONG_URL/health"; then
+            echo "✅ Kong API Gateway is healthy"
+          else
+            echo "❌ Kong API Gateway health check failed"
+            exit 1
+          fi
+          
+          # Test individual service health through gateway
+          services=("auth" "emotion" "conversation" "ai" "websocket")
+          for service in "${services[@]}"; do
+            if curl -f -m 10 "http://$KONG_URL/api/${service}/health"; then
+              echo "✅ $service service is healthy"
+            else
+              echo "⚠️ $service service health check failed (might be expected for some services)"
+            fi
+          done
+        else
+          echo "❌ Could not determine Kong service URL"
+          exit 1
+        fi
+    
+    - name: Create deployment record
+      run: |
+        kubectl create configmap deployment-record-$(date +%Y%m%d-%H%M%S) \
+          --from-literal=version="${{ github.event.inputs.version }}" \
+          --from-literal=deployed-by="${{ github.actor }}" \
+          --from-literal=deployed-at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          --from-literal=commit="${{ github.sha }}" \
+          --namespace emotibot-production
+    
+    - name: Post deployment notification
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "🚀 Production deployment completed successfully!"
+          echo "Version: ${{ github.event.inputs.version }}"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        else
+          echo "💥 Production deployment failed!"
+          echo "Please check the logs and consider rollback if necessary"
+        fi
+
+  rollback-on-failure:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: failure()
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+    
+    - name: Rollback deployments
+      run: |
+        echo "🔄 Rolling back deployments..."
+        
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service" "kong")
+        
+        for service in "${services[@]}"; do
+          if kubectl get deployment $service -n emotibot-production > /dev/null 2>&1; then
+            echo "Rolling back $service..."
+            kubectl rollout undo deployment/$service -n emotibot-production
+            kubectl rollout status deployment/$service -n emotibot-production --timeout=300s
+          fi
+        done
+        
+        echo "🔄 Rollback completed" 
