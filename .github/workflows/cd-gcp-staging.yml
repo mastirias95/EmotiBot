@@ -42,7 +42,7 @@ jobs:
       run: |
         cd microservices
         
-        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service" "frontend")
         
         for service in "${services[@]}"; do
           echo "🔨 Building $service..."
@@ -80,7 +80,7 @@ jobs:
         cd kubernetes
         
         # Update image references in deployment files
-        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service")
+        services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service" "frontend")
         
         for service in "${services[@]}"; do
           # Update deployment-microservices.yaml with new image paths
