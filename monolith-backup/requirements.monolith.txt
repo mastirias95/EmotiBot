@@ -13,7 +13,7 @@ pytest-cov==4.1.0
 flake8==6.0.0
 black==23.7.0
 isort==5.12.0
-bandit==1.7.5
+bandit==1.8.5
 safety==2.3.4
 prometheus-flask-exporter==0.23.0
 flask-socketio==5.3.6
