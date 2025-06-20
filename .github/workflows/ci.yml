@@ -20,6 +20,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Debug git checkout and repository state
+      run: |
+        echo "🔍 DEBUGGING: Git and repository information"
+        echo "Current branch: $(git branch --show-current)"
+        echo "Latest commit: $(git log --oneline -1)"
+        echo ""
+        echo "🔍 DEBUGGING: All Python files in repository"
+        find . -name "*.py" | head -20
+    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -44,14 +53,46 @@ jobs:
           pip install -r microservices/shared-libs/requirements.txt
         fi
     
+    - name: Debug directory structure
+      run: |
+        echo "🔍 DEBUGGING: Current working directory"
+        pwd
+        echo ""
+        echo "🔍 DEBUGGING: Root directory contents"
+        ls -la
+        echo ""
+        echo "🔍 DEBUGGING: Microservices directory exists?"
+        ls -la microservices/ || echo "❌ microservices directory not found"
+        echo ""
+        echo "🔍 DEBUGGING: ${{ matrix.service }} directory contents"
+        ls -la microservices/${{ matrix.service }}/ || echo "❌ ${{ matrix.service }} directory not found"
+        echo ""
+        echo "🔍 DEBUGGING: Looking for app.py specifically"
+        if [ -f "microservices/${{ matrix.service }}/app.py" ]; then
+          echo "✅ Found microservices/${{ matrix.service }}/app.py"
+          echo "File size: $(wc -c < microservices/${{ matrix.service }}/app.py) bytes"
+        else
+          echo "❌ microservices/${{ matrix.service }}/app.py NOT FOUND"
+        fi
+    
     - name: Lint with flake8
       run: |
         # Lint the main app.py file in each service
         echo "🔍 Linting ${{ matrix.service }}/app.py"
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 ./microservices/${{ matrix.service }}/app.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 ./microservices/${{ matrix.service }}/app.py --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+        
+        # Check if file exists before linting
+        if [ -f "microservices/${{ matrix.service }}/app.py" ]; then
+          echo "✅ File exists, proceeding with linting..."
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 microservices/${{ matrix.service }}/app.py --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 microservices/${{ matrix.service }}/app.py --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+        else
+          echo "❌ File microservices/${{ matrix.service }}/app.py does not exist!"
+          echo "Available files in microservices/${{ matrix.service }}/"
+          ls -la microservices/${{ matrix.service }}/ || echo "Directory doesn't exist"
+          exit 1
+        fi
     
     - name: Test service health endpoint
       run: |
