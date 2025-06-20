@@ -3,7 +3,7 @@ Auth Service - Handles authentication and authorization for EmotiBot microservic
 Provides user registration, login, token verification, and user management.
 """
 
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -17,7 +17,6 @@ from prometheus_flask_exporter import PrometheusMetrics
 import redis
 import json
 import sys
-import os
 
 # Add shared-libs to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared-libs'))
@@ -210,7 +209,7 @@ def register():
 @app.route('/api/auth/login', methods=['POST'])
 @metrics.counter('user_logins', 'Number of user login attempts')
 def login():
-    """Authenticate user and return JWT token."""
+    """Login user and return JWT token."""
     data = request.get_json()
     
     if not data:
@@ -220,7 +219,7 @@ def login():
     password = data.get('password', '')
     
     if not all([username, password]):
-        return jsonify({'error': 'Username and password required'}), 400
+        return jsonify({'error': 'Username and password are required'}), 400
     
     db = SessionLocal()
     try:
@@ -229,11 +228,11 @@ def login():
             (User.username == username) | (User.email == username)
         ).first()
         
-        if not user or not user.is_active:
+        if not user or not check_password_hash(user.hashed_password, password):
             return jsonify({'error': 'Invalid credentials'}), 401
         
-        if not check_password_hash(user.hashed_password, password):
-            return jsonify({'error': 'Invalid credentials'}), 401
+        if not user.is_active:
+            return jsonify({'error': 'Account is deactivated'}), 401
         
         # Generate JWT token
         payload = {
