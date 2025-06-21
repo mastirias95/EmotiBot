@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: emotibot-project-463521
   GKE_CLUSTER: emotibot-cluster
-  GKE_ZONE: europe-west1-b
+  GKE_REGION: europe-west1
   REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
   REPOSITORY: emotibot-repo
 
@@ -36,7 +36,7 @@ jobs:
 
     - name: Get GKE credentials
       run: |
-        gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE"
+        gcloud container clusters get-credentials "$GKE_CLUSTER" --region "$GKE_REGION"
 
     - name: Build and push Docker images
       run: |
