@@ -114,6 +114,12 @@ jobs:
       run: |
         cd kubernetes
         
+        echo "🔧 Creating Kong ConfigMap..."
+        kubectl create configmap kong-config \
+          --from-file=kong.yml=../microservices/api-gateway/kong.yml \
+          --namespace emotibot-staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
         echo "🚀 Deploying microservices..."
         kubectl apply -f deployment-microservices.yaml -n emotibot-staging
         kubectl apply -f services-microservices.yaml -n emotibot-staging
@@ -142,91 +148,26 @@ jobs:
           }
         done
 
-    - name: Deploy Kong API Gateway
+    - name: Clean up old pods
       run: |
-        # Create Kong ConfigMap
-        kubectl create configmap kong-config \
-          --from-file=kong.yml=microservices/api-gateway/kong.yml \
-          --namespace emotibot-staging \
-          --dry-run=client -o yaml | kubectl apply -f -
+        echo "🧹 Cleaning up old pods with ErrImageNeverPull..."
+        # Delete old pods that have ErrImageNeverPull status
+        kubectl delete pods -l app=emotibot-auth-service --field-selector=status.phase=Pending -n emotibot-staging --ignore-not-found=true
+        kubectl delete pods -l app=emotibot-conversation-service --field-selector=status.phase=Pending -n emotibot-staging --ignore-not-found=true
         
-        # Deploy Kong
-        kubectl apply -f - <<EOF
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: kong
-          namespace: emotibot-staging
-        spec:
-          replicas: 2
-          selector:
-            matchLabels:
-              app: kong
-          template:
-            metadata:
-              labels:
-                app: kong
-            spec:
-              containers:
-              - name: kong
-                image: kong:3.4
-                env:
-                - name: KONG_DATABASE
-                  value: "off"
-                - name: KONG_DECLARATIVE_CONFIG
-                  value: /kong.yml
-                - name: KONG_PROXY_ACCESS_LOG
-                  value: /dev/stdout
-                - name: KONG_ADMIN_ACCESS_LOG
-                  value: /dev/stdout
-                - name: KONG_PROXY_ERROR_LOG
-                  value: /dev/stderr
-                - name: KONG_ADMIN_ERROR_LOG
-                  value: /dev/stderr
-                - name: KONG_ADMIN_LISTEN
-                  value: "0.0.0.0:8001"
-                - name: KONG_PROXY_LISTEN
-                  value: "0.0.0.0:8000"
-                ports:
-                - containerPort: 8000
-                - containerPort: 8001
-                volumeMounts:
-                - name: kong-config
-                  mountPath: /kong.yml
-                  subPath: kong.yml
-              volumes:
-              - name: kong-config
-                configMap:
-                  name: kong-config
-        ---
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: kong
-          namespace: emotibot-staging
-        spec:
-          type: LoadBalancer
-          selector:
-            app: kong
-          ports:
-          - name: proxy
-            port: 80
-            targetPort: 8000
-          - name: admin
-            port: 8001
-            targetPort: 8001
-        EOF
+        echo "🔄 Restarting failed deployments..."
+        kubectl rollout restart deployment/emotibot-api-gateway -n emotibot-staging
 
     - name: Get service endpoints
       run: |
         echo "🌐 Getting service endpoints..."
         
         # Wait for LoadBalancer IP
-        echo "Waiting for Kong LoadBalancer IP..."
-        kubectl wait --for=jsonpath='{.status.loadBalancer.ingress}' service/kong -n emotibot-staging --timeout=300s || echo "LoadBalancer might still be provisioning"
+        echo "Waiting for API Gateway LoadBalancer IP..."
+        kubectl wait --for=jsonpath='{.status.loadBalancer.ingress}' service/emotibot-api-gateway -n emotibot-staging --timeout=300s || echo "LoadBalancer might still be provisioning"
         
         # Get external IP
-        EXTERNAL_IP=$(kubectl get service kong -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+        EXTERNAL_IP=$(kubectl get service emotibot-api-gateway -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
         
         echo "📊 Deployment Status:"
         kubectl get pods -n emotibot-staging
@@ -246,8 +187,8 @@ jobs:
       run: |
         echo "🏥 Running health checks..."
         
-        # Get Kong service IP
-        EXTERNAL_IP=$(kubectl get service kong -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+        # Get API Gateway service IP
+        EXTERNAL_IP=$(kubectl get service emotibot-api-gateway -n emotibot-staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
         
         if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "pending" ]; then
           echo "Testing Kong API Gateway at $EXTERNAL_IP..."

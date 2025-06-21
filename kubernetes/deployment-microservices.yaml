@@ -43,11 +43,19 @@ spec:
           value: "0.0.0.0:8000"
         resources:
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "300m"
+            memory: "256Mi"
           requests:
-            cpu: "100m"
+            cpu: "50m"
             memory: "128Mi"
+        volumeMounts:
+        - name: kong-config
+          mountPath: /kong.yml
+          subPath: kong.yml
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
 ---
 apiVersion: apps/v1
 kind: Deployment
