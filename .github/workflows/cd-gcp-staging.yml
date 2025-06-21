@@ -89,14 +89,26 @@ jobs:
         # Update image references in deployment files
         services=("auth-service" "emotion-service" "conversation-service" "ai-service" "websocket-service" "frontend")
         
+        echo "🔧 Updating image references..."
         for service in "${services[@]}"; do
-          # Update deployment-microservices.yaml with new image paths
+          echo "Updating $service image reference..."
+          # Update images that match the pattern emotibot-{service}:latest
+          sed -i "s|image: emotibot-${service}:latest|image: ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:${{ github.sha }}|g" deployment-microservices.yaml
+          # Also update any other variations
           sed -i "s|image: .*/${service}:.*|image: ${{ env.REGISTRY_HOSTNAME }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${service}:${{ github.sha }}|g" deployment-microservices.yaml
         done
+        
+        # Update ImagePullPolicy from Never to Always for GKE
+        echo "🔧 Updating ImagePullPolicy..."
+        sed -i 's/imagePullPolicy: Never/imagePullPolicy: Always/g' deployment-microservices.yaml
         
         # Update namespace to staging
         sed -i 's/namespace: default/namespace: emotibot-staging/g' deployment-microservices.yaml
         sed -i 's/namespace: default/namespace: emotibot-staging/g' services-microservices.yaml
+        
+        # Show what we updated
+        echo "🔍 Updated deployment file preview:"
+        grep -n "image:" deployment-microservices.yaml | head -10
 
     - name: Deploy to GKE
       run: |
@@ -109,13 +121,25 @@ jobs:
         echo "📋 Checking deployed resources..."
         kubectl get deployments -n emotibot-staging
         
-        echo "⏳ Waiting for deployments to be ready..."
+        echo "🔍 Checking pod status..."
+        kubectl get pods -n emotibot-staging
+        
+        echo "🔍 Describing pods to check for issues..."
+        kubectl describe pods -n emotibot-staging | head -50
+        
+        echo "⏳ Waiting for deployments to be ready (shorter timeout for debugging)..."
         # Wait for specific deployments that we know exist
         deployment_names=("emotibot-auth-service" "emotibot-emotion-service" "emotibot-conversation-service" "emotibot-ai-service" "emotibot-websocket-service" "emotibot-api-gateway")
         
         for deployment in "${deployment_names[@]}"; do
           echo "Waiting for $deployment..."
-          kubectl wait --for=condition=available --timeout=300s deployment/$deployment -n emotibot-staging || echo "⚠️ $deployment might still be starting"
+          kubectl wait --for=condition=available --timeout=60s deployment/$deployment -n emotibot-staging || {
+            echo "⚠️ $deployment is not ready. Checking pod logs..."
+            kubectl get pods -l app=$deployment -n emotibot-staging
+            kubectl logs -l app=$deployment -n emotibot-staging --tail=20 || echo "No logs available yet"
+            echo "Pod events for $deployment:"
+            kubectl get events --field-selector involvedObject.kind=Pod -n emotibot-staging | grep $deployment || echo "No events found"
+          }
         done
 
     - name: Deploy Kong API Gateway
