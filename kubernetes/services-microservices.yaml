@@ -144,7 +144,7 @@ spec:
     protocol: TCP
     name: postgres
   selector:
-    app: conversation-db
+    app: conversation-db 
 ---
 apiVersion: v1
 kind: Service

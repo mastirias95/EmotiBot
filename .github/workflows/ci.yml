@@ -65,7 +65,7 @@ jobs:
         pip install --upgrade --only-binary=all pytest==7.4.2 pytest-cov==4.1.0
         # Skip additional test deps for faster CI
         echo "✅ Essential test dependencies installed"
-
+    
     - name: Run unit tests
       run: |
         cd ./microservices/${{ matrix.service }}
