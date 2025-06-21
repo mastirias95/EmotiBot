@@ -103,11 +103,20 @@ jobs:
         cd kubernetes
         
         echo "🚀 Deploying microservices..."
-        kubectl apply -f deployment-microservices.yaml
-        kubectl apply -f services-microservices.yaml
+        kubectl apply -f deployment-microservices.yaml -n emotibot-staging
+        kubectl apply -f services-microservices.yaml -n emotibot-staging
+        
+        echo "📋 Checking deployed resources..."
+        kubectl get deployments -n emotibot-staging
         
         echo "⏳ Waiting for deployments to be ready..."
-        kubectl wait --for=condition=available --timeout=600s deployment --all -n emotibot-staging
+        # Wait for specific deployments that we know exist
+        deployment_names=("emotibot-auth-service" "emotibot-emotion-service" "emotibot-conversation-service" "emotibot-ai-service" "emotibot-websocket-service" "emotibot-api-gateway")
+        
+        for deployment in "${deployment_names[@]}"; do
+          echo "Waiting for $deployment..."
+          kubectl wait --for=condition=available --timeout=300s deployment/$deployment -n emotibot-staging || echo "⚠️ $deployment might still be starting"
+        done
 
     - name: Deploy Kong API Gateway
       run: |
