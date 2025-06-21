@@ -3,10 +3,10 @@ _format_version: "3.0"
 services:
   # Auth Service
   - name: auth-service
-    url: http://auth-service:8001
+    url: http://emotibot-auth-service:8002
     protocol: http
-    host: auth-service
-    port: 8001
+    host: emotibot-auth-service
+    port: 8002
     retries: 3
     connect_timeout: 10000
     write_timeout: 10000
@@ -14,9 +14,9 @@ services:
 
   # Emotion Service
   - name: emotion-service
-    url: http://emotion-service:8003
+    url: http://emotibot-emotion-service:8003
     protocol: http
-    host: emotion-service
+    host: emotibot-emotion-service
     port: 8003
     retries: 3
     connect_timeout: 10000
@@ -25,9 +25,9 @@ services:
 
   # Conversation Service
   - name: conversation-service
-    url: http://conversation-service:8004
+    url: http://emotibot-conversation-service:8004
     protocol: http
-    host: conversation-service
+    host: emotibot-conversation-service
     port: 8004
     retries: 3
     connect_timeout: 10000
@@ -36,9 +36,9 @@ services:
 
   # AI Service
   - name: ai-service
-    url: http://ai-service:8005
+    url: http://emotibot-ai-service:8005
     protocol: http
-    host: ai-service
+    host: emotibot-ai-service
     port: 8005
     retries: 3
     connect_timeout: 10000
@@ -47,9 +47,9 @@ services:
 
   # WebSocket Service
   - name: websocket-service
-    url: http://websocket-service:8006
+    url: http://emotibot-websocket-service:8006
     protocol: http
-    host: websocket-service
+    host: emotibot-websocket-service
     port: 8006
     retries: 3
     connect_timeout: 10000
@@ -192,6 +192,16 @@ routes:
     service: auth-service
     paths:
       - /health
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+  # Root route for basic Kong health check
+  - name: kong-status
+    service: auth-service
+    paths:
+      - /
     methods:
       - GET
     strip_path: false

@@ -148,15 +148,19 @@ jobs:
           }
         done
 
-    - name: Clean up old pods
+    - name: Clean up old deployments
       run: |
+        echo "🧹 Cleaning up old Kong deployment..."
+        kubectl delete deployment kong -n emotibot-staging --ignore-not-found=true
+        kubectl delete service kong -n emotibot-staging --ignore-not-found=true
+        
         echo "🧹 Cleaning up old pods with ErrImageNeverPull..."
-        # Delete old pods that have ErrImageNeverPull status
         kubectl delete pods -l app=emotibot-auth-service --field-selector=status.phase=Pending -n emotibot-staging --ignore-not-found=true
         kubectl delete pods -l app=emotibot-conversation-service --field-selector=status.phase=Pending -n emotibot-staging --ignore-not-found=true
         
-        echo "🔄 Restarting failed deployments..."
-        kubectl rollout restart deployment/emotibot-api-gateway -n emotibot-staging
+        echo "🔍 Checking API Gateway status..."
+        kubectl get pods -l app=emotibot-api-gateway -n emotibot-staging
+        kubectl logs -l app=emotibot-api-gateway -n emotibot-staging --tail=10 || echo "No logs yet"
 
     - name: Get service endpoints
       run: |
@@ -193,19 +197,29 @@ jobs:
         if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "pending" ]; then
           echo "Testing Kong API Gateway at $EXTERNAL_IP..."
           
-          # Test Kong health
-          if curl -f --max-time 30 "http://$EXTERNAL_IP/" 2>/dev/null; then
-            echo "✅ Kong API Gateway is responding"
+          # Check if Kong is actually running
+          echo "🔍 Kong pod status:"
+          kubectl get pods -l app=emotibot-api-gateway -n emotibot-staging
+          
+          # Test Kong health with more verbose output
+          echo "Testing Kong proxy at http://$EXTERNAL_IP:8000/"
+          if curl -v --max-time 30 "http://$EXTERNAL_IP:8000/" 2>&1 | head -20; then
+            echo "✅ Kong API Gateway proxy is responding"
           else
-            echo "⚠️ Kong might still be starting up"
+            echo "⚠️ Kong proxy connection failed"
           fi
           
           # Test Kong admin
-          if curl -f --max-time 30 "http://$EXTERNAL_IP:8001/" 2>/dev/null; then
+          echo "Testing Kong admin at http://$EXTERNAL_IP:8001/"
+          if curl -v --max-time 30 "http://$EXTERNAL_IP:8001/" 2>&1 | head -20; then
             echo "✅ Kong Admin API is responding"
           else
-            echo "⚠️ Kong Admin API might still be starting up"
+            echo "⚠️ Kong Admin API connection failed"
           fi
+          
+          # Show Kong logs for debugging
+          echo "🔍 Recent Kong logs:"
+          kubectl logs -l app=emotibot-api-gateway -n emotibot-staging --tail=20 || echo "No logs available"
         else
           echo "⏳ External IP not yet assigned. Health checks will be available once LoadBalancer is ready."
         fi
