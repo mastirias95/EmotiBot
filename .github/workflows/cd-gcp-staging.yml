@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: emotibot-staging
+  PROJECT_ID: emotibot-project-463521
   GKE_CLUSTER: emotibot-cluster
-  GKE_ZONE: us-central1-a
-  REGISTRY_HOSTNAME: us-central1-docker.pkg.dev
+  GKE_ZONE: europe-west1-b
+  REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
   REPOSITORY: emotibot-repo
 
 jobs:
@@ -69,9 +69,9 @@ jobs:
           --from-literal=jwt-secret-key="${{ secrets.JWT_SECRET_KEY }}" \
           --from-literal=service-secret="${{ secrets.SERVICE_SECRET }}" \
           --from-literal=gemini-api-key="${{ secrets.GEMINI_API_KEY }}" \
-          --from-literal=auth-database-url="${{ secrets.GCP_AUTH_DATABASE_URL }}" \
-          --from-literal=conversation-database-url="${{ secrets.GCP_CONV_DATABASE_URL }}" \
-          --from-literal=redis-host="${{ secrets.GCP_REDIS_HOST }}" \
+          --from-literal=auth-database-url="${{ secrets.AUTH_DATABASE_URL }}" \
+          --from-literal=conversation-database-url="${{ secrets.CONV_DATABASE_URL }}" \
+          --from-literal=redis-host="${{ secrets.REDIS_HOST }}" \
           --namespace emotibot-staging \
           --dry-run=client -o yaml | kubectl apply -f -
 
