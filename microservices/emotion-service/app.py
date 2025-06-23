@@ -266,6 +266,13 @@ def detect_emotion():
         logger.error(f"Emotion analysis failed: {e}")
         return jsonify({'error': 'Emotion analysis failed'}), 500
 
+@app.route('/api/analyze', methods=['POST'])
+@metrics.counter('emotion_analyze_requests', 'Number of emotion analyze requests')
+def analyze_text():
+    """Analyze text for emotion (alias for detect_emotion)."""
+    # This is an alias for the emotion detection endpoint
+    return detect_emotion()
+
 @app.route('/api/emotion/stats', methods=['GET'])
 @metrics.counter('emotion_stats_requests', 'Number of emotion statistics requests')
 def get_emotion_stats():
