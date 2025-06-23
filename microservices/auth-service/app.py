@@ -382,6 +382,86 @@ def refresh_token():
         logger.error(f"Token refresh failed: {e}")
         return jsonify({'error': 'Token refresh failed'}), 500
 
+@app.route('/api/auth/user', methods=['GET'])
+@metrics.counter('current_user_requests', 'Number of current user requests')
+def get_current_user():
+    """Get current user profile from JWT token."""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header required'}), 401
+    
+    token = auth_header.split(' ')[1]
+    
+    try:
+        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        
+        # Check if token is expired
+        if datetime.utcnow() > datetime.fromtimestamp(payload['exp']):
+            return jsonify({'error': 'Token expired'}), 401
+        
+        # Get user from database
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == payload['user_id']).first()
+            
+            if not user or not user.is_active:
+                return jsonify({'error': 'User not found or inactive'}), 401
+            
+            return jsonify({
+                'user': user.to_dict()
+            }), 200
+            
+        finally:
+            db.close()
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logger.error(f"Get current user failed: {e}")
+        return jsonify({'error': 'Failed to get user profile'}), 500
+
+@app.route('/api/auth/user', methods=['GET'])
+@metrics.counter('current_user_requests', 'Number of current user requests')
+def get_current_user():
+    """Get current user profile from JWT token."""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header required'}), 401
+    
+    token = auth_header.split(' ')[1]
+    
+    try:
+        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        
+        # Check if token is expired
+        if datetime.utcnow() > datetime.fromtimestamp(payload['exp']):
+            return jsonify({'error': 'Token expired'}), 401
+        
+        # Get user from database
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == payload['user_id']).first()
+            
+            if not user or not user.is_active:
+                return jsonify({'error': 'User not found or inactive'}), 401
+            
+            return jsonify({
+                'user': user.to_dict()
+            }), 200
+            
+        finally:
+            db.close()
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        logger.error(f"Get current user failed: {e}")
+        return jsonify({'error': 'Failed to get user profile'}), 500
+
 @app.route('/api/auth/user/<int:user_id>', methods=['GET'])
 @metrics.counter('user_profile_requests', 'Number of user profile requests')
 def get_user_profile(user_id):
