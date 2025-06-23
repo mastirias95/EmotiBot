@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmotiBot - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-message {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: white;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: none;
+        }
+
+        .result-message.success {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+
+        .result-message.error {
+            background: rgba(244, 67, 54, 0.2);
+            border-color: rgba(244, 67, 54, 0.5);
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .links a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            margin: 0 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .links a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+            
+            .back-btn {
+                position: relative;
+                top: auto;
+                left: auto;
+                margin-bottom: 2rem;
+                display: inline-block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">← Back to Chat</a>
+    
+    <div class="login-container">
+        <div class="logo">
+            <h1>🤖</h1>
+            <p>Login to EmotiBot</p>
+        </div>
+        
+        <div class="result-message" id="result-message"></div>
+        
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+            
+            <button type="submit" class="login-btn" id="login-btn">Login</button>
+        </form>
+        
+        <div class="links">
+            <a href="register.html">Don't have an account? Register</a>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('login-form');
+        const resultMessage = document.getElementById('result-message');
+        const loginBtn = document.getElementById('login-btn');
+
+        function showMessage(message, type = 'error') {
+            resultMessage.textContent = message;
+            resultMessage.className = `result-message ${type}`;
+            resultMessage.style.display = 'block';
+        }
+
+        function hideMessage() {
+            resultMessage.style.display = 'none';
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showMessage('Please enter both username and password');
+                return;
+            }
+
+            // Disable form
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            hideMessage();
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.token) {
+                    // Save token to localStorage
+                    localStorage.setItem('authToken', result.token);
+                    
+                    showMessage('Login successful! Redirecting to chat...', 'success');
+                    
+                    // Redirect to main page after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    showMessage(result.error || result.message || 'Login failed. Please check your credentials.');
+                }
+            } catch (error) {
+                showMessage(`Network error: ${error.message}`);
+            } finally {
+                // Re-enable form
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        });
+
+        // Check if already logged in
+        if (localStorage.getItem('authToken')) {
+            showMessage('You are already logged in. Redirecting...', 'success');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 2000);
+        }
+    </script>
+</body>
+</html> 

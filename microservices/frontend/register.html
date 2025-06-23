@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmotiBot - Register</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .register-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .register-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .register-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .register-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-message {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: white;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: none;
+        }
+
+        .result-message.success {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+
+        .result-message.error {
+            background: rgba(244, 67, 54, 0.2);
+            border-color: rgba(244, 67, 54, 0.5);
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .links a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            margin: 0 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .links a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .password-requirements {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .password-requirements ul {
+            margin-left: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 480px) {
+            .register-container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+            
+            .back-btn {
+                position: relative;
+                top: auto;
+                left: auto;
+                margin-bottom: 2rem;
+                display: inline-block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">← Back to Chat</a>
+    
+    <div class="register-container">
+        <div class="logo">
+            <h1>🤖</h1>
+            <p>Join EmotiBot</p>
+        </div>
+        
+        <div class="result-message" id="result-message"></div>
+        
+        <form id="register-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Choose a username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Choose a password" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm-password">Confirm Password</label>
+                <input type="password" id="confirm-password" name="confirm-password" placeholder="Confirm your password" required>
+            </div>
+            
+            <div class="password-requirements">
+                <strong>Password Requirements:</strong>
+                <ul>
+                    <li>At least 6 characters long</li>
+                    <li>Contains at least one letter and one number</li>
+                </ul>
+            </div>
+            
+            <button type="submit" class="register-btn" id="register-btn">Create Account</button>
+        </form>
+        
+        <div class="links">
+            <a href="login.html">Already have an account? Login</a>
+        </div>
+    </div>
+
+    <script>
+        const registerForm = document.getElementById('register-form');
+        const resultMessage = document.getElementById('result-message');
+        const registerBtn = document.getElementById('register-btn');
+
+        function showMessage(message, type = 'error') {
+            resultMessage.textContent = message;
+            resultMessage.className = `result-message ${type}`;
+            resultMessage.style.display = 'block';
+        }
+
+        function hideMessage() {
+            resultMessage.style.display = 'none';
+        }
+
+        function validatePassword(password) {
+            if (password.length < 6) {
+                return 'Password must be at least 6 characters long';
+            }
+            if (!/(?=.*[a-zA-Z])(?=.*[0-9])/.test(password)) {
+                return 'Password must contain at least one letter and one number';
+            }
+            return null;
+        }
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            // Validation
+            if (!username || !email || !password || !confirmPassword) {
+                showMessage('Please fill in all fields');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match');
+                return;
+            }
+
+            const passwordError = validatePassword(password);
+            if (passwordError) {
+                showMessage(passwordError);
+                return;
+            }
+
+            // Disable form
+            registerBtn.disabled = true;
+            registerBtn.textContent = 'Creating Account...';
+            hideMessage();
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('Account created successfully! You can now login.', 'success');
+                    
+                    // Clear form
+                    registerForm.reset();
+                    
+                    // Redirect to login page after 3 seconds
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 3000);
+                } else {
+                    showMessage(result.error || result.message || 'Registration failed. Please try again.');
+                }
+            } catch (error) {
+                showMessage(`Network error: ${error.message}`);
+            } finally {
+                // Re-enable form
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Create Account';
+            }
+        });
+
+        // Check if already logged in
+        if (localStorage.getItem('authToken')) {
+            showMessage('You are already logged in. Redirecting to chat...', 'success');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 2000);
+        }
+    </script>
+</body>
+</html> 
