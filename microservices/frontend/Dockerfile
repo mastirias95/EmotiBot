@@ -20,9 +20,18 @@ RUN echo 'server { \
         try_files $uri $uri/ /index.html; \
     } \
     \
+    # Health endpoint proxy to Kong Gateway \
+    location /health { \
+        proxy_pass http://emotibot-api-gateway:8000/health; \
+        proxy_set_header Host $host; \
+        proxy_set_header X-Real-IP $remote_addr; \
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+        proxy_set_header X-Forwarded-Proto $scheme; \
+    } \
+    \
     # API proxy to Kong Gateway \
     location /api/ { \
-        proxy_pass http://kong:8000/; \
+        proxy_pass http://emotibot-api-gateway:8000/api/; \
         proxy_set_header Host $host; \
         proxy_set_header X-Real-IP $remote_addr; \
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
@@ -31,7 +40,19 @@ RUN echo 'server { \
     \
     # WebSocket support \
     location /ws/ { \
-        proxy_pass http://kong:8000/ws/; \
+        proxy_pass http://emotibot-api-gateway:8000/ws/; \
+        proxy_http_version 1.1; \
+        proxy_set_header Upgrade $http_upgrade; \
+        proxy_set_header Connection "upgrade"; \
+        proxy_set_header Host $host; \
+        proxy_set_header X-Real-IP $remote_addr; \
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+        proxy_set_header X-Forwarded-Proto $scheme; \
+    } \
+    \
+    # Socket.IO support \
+    location /socket.io/ { \
+        proxy_pass http://emotibot-api-gateway:8000/socket.io/; \
         proxy_http_version 1.1; \
         proxy_set_header Upgrade $http_upgrade; \
         proxy_set_header Connection "upgrade"; \

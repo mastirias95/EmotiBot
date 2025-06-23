@@ -325,11 +325,11 @@
 
         // Service URLs
         const services = {
-            auth: 'http://localhost:8002',
-            emotion: 'http://localhost:8003',
-            conversation: 'http://localhost:8004',
-            ai: 'http://localhost:8005',
-            websocket: 'http://localhost:8006'
+            auth: '/api',           // Use relative URLs to go through nginx proxy
+            emotion: '/api',        // Use relative URLs to go through nginx proxy
+            conversation: '/api',   // Use relative URLs to go through nginx proxy
+            ai: '/api',            // Use relative URLs to go through nginx proxy
+            websocket: '/api'      // Use relative URLs to go through nginx proxy
         };
 
         // Check service health
@@ -344,7 +344,7 @@
 
             for (const service of serviceChecks) {
                 try {
-                    const response = await fetch(`${service.url}/health`, {
+                    const response = await fetch(`/health`, {
                         method: 'GET',
                         mode: 'cors'
                     });
@@ -391,7 +391,7 @@
             }
 
             try {
-                const response = await fetch(`${services.auth}/api/auth/register`, {
+                const response = await fetch(`/api/auth/register`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -420,7 +420,7 @@
             }
 
             try {
-                const response = await fetch(`${services.auth}/api/auth/login`, {
+                const response = await fetch(`/api/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -483,7 +483,7 @@
             try {
                 console.log('Making request to emotion service...'); // Debug log
                 
-                const response = await fetch(`${services.emotion}/api/emotion/detect`, {
+                const response = await fetch(`/api/emotion/detect`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -523,7 +523,7 @@
             }
 
             try {
-                const response = await fetch(`${services.ai}/api/ai/generate`, {
+                const response = await fetch(`/api/ai/generate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
