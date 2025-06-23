@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-frontend
+  namespace: emotibot-staging
+  labels:
+    app: emotibot-frontend
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emotibot-frontend
+  template:
+    metadata:
+      labels:
+        app: emotibot-frontend
+        version: v1
+    spec:
+      containers:
+      - name: frontend
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        - name: index-html
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+        - name: login-html
+          mountPath: /usr/share/nginx/html/login.html
+          subPath: login.html
+        - name: register-html
+          mountPath: /usr/share/nginx/html/register.html
+          subPath: register.html
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: frontend-config
+      - name: index-html
+        configMap:
+          name: frontend-html
+      - name: login-html
+        configMap:
+          name: frontend-login
+      - name: register-html
+        configMap:
+          name: frontend-register 
