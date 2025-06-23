@@ -105,6 +105,15 @@ routes:
     strip_path: false
     preserve_host: false
 
+  - name: emotion-detect
+    service: emotion-service
+    paths:
+      - /api/emotion/detect
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
   - name: emotion-batch
     service: emotion-service
     paths:
@@ -123,6 +132,15 @@ routes:
     strip_path: false
     preserve_host: false
 
+  - name: emotion-stats-correct
+    service: emotion-service
+    paths:
+      - /api/emotion/stats
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
   - name: emotion-validate
     service: emotion-service
     paths:
@@ -132,13 +150,58 @@ routes:
     strip_path: false
     preserve_host: false
 
+  - name: emotion-validate-correct
+    service: emotion-service
+    paths:
+      - /api/emotion/validate
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
   # Conversation Service Routes
-  - name: conversation-history
+  - name: conversation-list
     service: conversation-service
     paths:
-      - /api/conversations/history
+      - /api/conversations
     methods:
       - GET
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-create
+    service: conversation-service
+    paths:
+      - /api/conversations
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-delete
+    service: conversation-service
+    paths:
+      - /api/conversations/(\d+)
+    methods:
+      - DELETE
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-messages-list
+    service: conversation-service
+    paths:
+      - /api/conversations/(\d+)/messages
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-messages-send
+    service: conversation-service
+    paths:
+      - /api/conversations/(\d+)/messages
+    methods:
+      - POST
     strip_path: false
     preserve_host: false
 
@@ -148,15 +211,6 @@ routes:
       - /api/conversations/insights
     methods:
       - GET
-    strip_path: false
-    preserve_host: false
-
-  - name: conversation-save
-    service: conversation-service
-    paths:
-      - /api/conversations
-    methods:
-      - POST
     strip_path: false
     preserve_host: false
 

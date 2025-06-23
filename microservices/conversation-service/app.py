@@ -250,7 +250,12 @@ def get_conversations():
     if not is_valid:
         return jsonify({'error': 'Invalid token'}), 401
     
-    user_id = user_data.get('user_id')
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
     
     db = SessionLocal()
     try:
@@ -283,8 +288,25 @@ def create_conversation():
         return jsonify({'error': 'Invalid token'}), 401
     
     data = request.get_json()
+    logger.info(f"Received data: {data}, type: {type(data)}")
+    
+    # Handle case where data is a string (double-encoded JSON)
+    if isinstance(data, str):
+        try:
+            import json
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse JSON string: {data}")
+            return jsonify({'error': 'Invalid JSON format'}), 400
+    
     title = data.get('title', 'New Conversation')
-    user_id = user_data.get('user_id')
+    
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
     
     db = SessionLocal()
     try:
@@ -331,7 +353,12 @@ def get_messages(conversation_id):
     if not is_valid:
         return jsonify({'error': 'Invalid token'}), 401
     
-    user_id = user_data.get('user_id')
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
     
     db = SessionLocal()
     try:
@@ -373,12 +400,28 @@ def send_message(conversation_id):
         return jsonify({'error': 'Invalid token'}), 401
     
     data = request.get_json()
+    logger.info(f"Received message data: {data}, type: {type(data)}")
+    
+    # Handle case where data is a string (double-encoded JSON)
+    if isinstance(data, str):
+        try:
+            import json
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse JSON string: {data}")
+            return jsonify({'error': 'Invalid JSON format'}), 400
+    
     content = data.get('message', '').strip()
     
     if not content:
         return jsonify({'error': 'Message content is required'}), 400
     
-    user_id = user_data.get('user_id')
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
     
     db = SessionLocal()
     try:
@@ -467,7 +510,12 @@ def delete_conversation(conversation_id):
     if not is_valid:
         return jsonify({'error': 'Invalid token'}), 401
     
-    user_id = user_data.get('user_id')
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
     
     db = SessionLocal()
     try:
@@ -518,7 +566,12 @@ def get_conversation_insights():
     if not is_valid:
         return jsonify({'error': 'Invalid token'}), 401
     
-    user_id = user_data.get('user_id')
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
     
     db = SessionLocal()
     try:
