@@ -45,11 +45,11 @@ SERVICE_SECRET = os.environ.get('SERVICE_SECRET', 'default-service-secret')
 
 # Google Gemini Configuration
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
-    logger.info("Gemini AI configured successfully")
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    logger.info("Gemini AI configured successfully with gemini-1.5-flash model")
 else:
     model = None
     logger.warning("GEMINI_API_KEY not provided - AI responses will be limited")
