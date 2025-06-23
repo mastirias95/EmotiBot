@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-frontend
+  namespace: emotibot-staging
+  labels:
+    app: emotibot-frontend
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emotibot-frontend
+  template:
+    metadata:
+      labels:
+        app: emotibot-frontend
+        version: v1
+    spec:
+      containers:
+      - name: frontend
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi 

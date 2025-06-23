@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-auth-service
+  namespace: emotibot-staging
+  labels:
+    app: emotibot-auth-service
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emotibot-auth-service
+  template:
+    metadata:
+      labels:
+        app: emotibot-auth-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: auth-service
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/auth-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: AUTH_DATABASE_URL
+          value: "postgresql://postgres:emotibot-auth-db1@127.0.0.1:5432/emotibotdb"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: secret-key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: jwt-secret-key
+        - name: SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: service-secret
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.33.2
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances=emotibot-project-463521:europe-west1:emotibot-auth-db=tcp:5432"
+          - "-credential_file=/secrets/service_account.json"
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+        - name: cloudsql-instance-credentials
+          mountPath: /secrets/
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: cloudsql-instance-credentials
+        secret:
+          secretName: cloudsql-instance-credentials 
