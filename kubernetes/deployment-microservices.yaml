@@ -41,13 +41,15 @@ spec:
           value: "0.0.0.0:8001"
         - name: KONG_PROXY_LISTEN
           value: "0.0.0.0:8000"
+        - name: KONG_LOG_LEVEL
+          value: "info"
         resources:
           limits:
-            cpu: "300m"
-            memory: "256Mi"
+            cpu: "500m"
+            memory: "1Gi"
           requests:
-            cpu: "50m"
-            memory: "128Mi"
+            cpu: "100m"
+            memory: "512Mi"
         volumeMounts:
         - name: kong-config
           mountPath: /kong.yml
@@ -81,17 +83,14 @@ spec:
     spec:
       containers:
       - name: auth-service
-        image: emotibot-auth-service:latest
-        imagePullPolicy: Never
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/auth-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8002
           name: http
         env:
         - name: AUTH_DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: emotibot-secrets
-              key: auth-database-url
+          value: "postgresql://auth_user:auth_secure_pass_2024@auth-db:5432/authdb"
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
@@ -159,8 +158,8 @@ spec:
     spec:
       containers:
       - name: emotion-service
-        image: emotibot-emotion-service:latest
-        imagePullPolicy: Never
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/emotion-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8003
           name: http
@@ -224,17 +223,14 @@ spec:
     spec:
       containers:
       - name: conversation-service
-        image: emotibot-conversation-service:latest
-        imagePullPolicy: Never
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/conversation-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8004
           name: http
         env:
         - name: CONVERSATION_DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: emotibot-secrets
-              key: conversation-database-url
+          value: "postgresql://conv_user:conv_secure_pass_2024@conversation-db:5432/conversationdb"
         - name: AUTH_SERVICE_URL
           value: "http://emotibot-auth-service:8002"
         - name: EMOTION_SERVICE_URL
@@ -298,8 +294,8 @@ spec:
     spec:
       containers:
       - name: ai-service
-        image: emotibot-ai-service:latest
-        imagePullPolicy: Never
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/ai-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8005
           name: http
@@ -368,8 +364,8 @@ spec:
     spec:
       containers:
       - name: websocket-service
-        image: emotibot-websocket-service:latest
-        imagePullPolicy: Never
+        image: europe-west1-docker.pkg.dev/emotibot-project-463521/emotibot-repo/websocket-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8006
           name: http
@@ -411,4 +407,235 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 3 
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app: redis
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        version: v1
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+        - redis-server
+        - --appendonly yes
+        - --maxmemory 256mb
+        - --maxmemory-policy allkeys-lru
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-data
+        emptyDir: {}
+---
+# PostgreSQL Database for Auth Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-db
+  labels:
+    app: auth-db
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-db
+  template:
+    metadata:
+      labels:
+        app: auth-db
+        version: v1
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "auth_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: auth-db-password
+        - name: POSTGRES_DB
+          value: "authdb"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+        volumeMounts:
+        - name: auth-db-data
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - auth_user
+            - -d
+            - authdb
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - auth_user
+            - -d
+            - authdb
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: auth-db-data
+        emptyDir: {}
+---
+# PostgreSQL Database for Conversation Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversation-db
+  labels:
+    app: conversation-db
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conversation-db
+  template:
+    metadata:
+      labels:
+        app: conversation-db
+        version: v1
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "conv_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: emotibot-secrets
+              key: conv-db-password
+        - name: POSTGRES_DB
+          value: "conversationdb"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+        volumeMounts:
+        - name: conv-db-data
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - conv_user
+            - -d
+            - conversationdb
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - conv_user
+            - -d
+            - conversationdb
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: conv-db-data
+        emptyDir: {}
+---
+# Frontend Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotibot-frontend
+  labels:
+    app: emotibot-frontend
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emotibot-frontend
+  template:
+    metadata:
+      labels:
+        app: emotibot-frontend
+        version: v1
+    spec:
+      containers:
+      - name: frontend
+        image: gcr.io/emotibot-project-463521/emotibot-frontend:latest
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+ 
