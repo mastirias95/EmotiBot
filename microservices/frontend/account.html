@@ -275,6 +275,8 @@
         async function clearChatHistory() {
             if (confirm('Are you sure you want to clear all your chat history? This action cannot be undone.')) {
                 try {
+                    console.log('Starting clear chat history with token:', authToken ? 'Present' : 'Missing');
+                    
                     const response = await fetch('/api/conversations/clear', {
                         method: 'DELETE',
                         headers: {
@@ -283,15 +285,30 @@
                         }
                     });
 
+                    console.log('Clear response status:', response.status);
+                    console.log('Clear response headers:', response.headers);
+
                     if (response.ok) {
+                        const data = await response.json();
+                        console.log('Clear response data:', data);
                         alert('Chat history cleared successfully.');
                         // Also clear local storage
                         localStorage.removeItem('chatHistory');
                     } else {
-                        const errorData = await response.json().catch(() => ({}));
-                        alert('Failed to clear chat history: ' + (errorData.error || 'Please try again.'));
+                        const errorText = await response.text();
+                        console.log('Clear error response:', errorText);
+                        
+                        let errorData = {};
+                        try {
+                            errorData = JSON.parse(errorText);
+                        } catch (e) {
+                            console.log('Could not parse clear error response as JSON');
+                        }
+                        
+                        alert('Failed to clear chat history. Status: ' + response.status + '. Error: ' + (errorData.error || errorText || 'Please try again.'));
                     }
                 } catch (error) {
+                    console.error('Clear chat history error:', error);
                     alert('Error clearing chat history: ' + error.message);
                 }
             }
