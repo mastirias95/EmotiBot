@@ -247,7 +247,7 @@
         // Load user information
         async function loadUserInfo() {
             try {
-                const response = await fetch('/api/auth/user/profile', {
+                const response = await fetch('/api/auth/user', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
@@ -255,7 +255,8 @@
                 });
 
                 if (response.ok) {
-                    const user = await response.json();
+                    const userData = await response.json();
+                    const user = userData.user || userData; // Handle different response structures
                     document.getElementById('user-info').innerHTML = `
                         <strong>Username:</strong> ${user.username || 'N/A'}<br>
                         <strong>Email:</strong> ${user.email || 'N/A'}<br>
@@ -274,7 +275,7 @@
         async function clearChatHistory() {
             if (confirm('Are you sure you want to clear all your chat history? This action cannot be undone.')) {
                 try {
-                    const response = await fetch('/api/conversation/clear', {
+                    const response = await fetch('/api/conversations/clear', {
                         method: 'DELETE',
                         headers: {
                             'Authorization': `Bearer ${authToken}`,
@@ -287,7 +288,8 @@
                         // Also clear local storage
                         localStorage.removeItem('chatHistory');
                     } else {
-                        alert('Failed to clear chat history. Please try again.');
+                        const errorData = await response.json().catch(() => ({}));
+                        alert('Failed to clear chat history: ' + (errorData.error || 'Please try again.'));
                     }
                 } catch (error) {
                     alert('Error clearing chat history: ' + error.message);
@@ -298,7 +300,7 @@
         // Download chat history
         async function downloadChatHistory() {
             try {
-                const response = await fetch('/api/conversation/export', {
+                const response = await fetch('/api/conversations/export', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
@@ -316,19 +318,20 @@
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
+                    alert('Chat history downloaded successfully!');
                 } else {
-                    alert('Failed to download chat history. Please try again.');
+                    const errorData = await response.json().catch(() => ({}));
+                    alert('Failed to download chat history: ' + (errorData.error || 'Please try again.'));
                 }
             } catch (error) {
                 alert('Error downloading chat history: ' + error.message);
             }
         }
 
-        // Request data export (GDPR)
+        // Request data export (GDPR) - Use same endpoint as chat history for now
         async function requestDataExport() {
             try {
-                const response = await fetch('/api/auth/gdpr/export', {
-                    method: 'POST',
+                const response = await fetch('/api/conversations/export', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
@@ -337,7 +340,23 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    
+                    // Enhanced export data with GDPR compliance information
+                    const gdprData = {
+                        ...data,
+                        gdpr_info: {
+                            export_type: 'GDPR Data Export',
+                            user_rights: [
+                                'Right to access your data',
+                                'Right to rectification', 
+                                'Right to erasure',
+                                'Right to data portability'
+                            ],
+                            contact_info: 'For data protection inquiries, contact support@emotibot.com'
+                        }
+                    };
+                    
+                    const blob = new Blob([JSON.stringify(gdprData, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -346,9 +365,10 @@
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
-                    alert('Your data has been exported successfully.');
+                    alert('Your GDPR data export has been downloaded successfully.');
                 } else {
-                    alert('Failed to export data. Please try again.');
+                    const errorData = await response.json().catch(() => ({}));
+                    alert('Failed to export data: ' + (errorData.error || 'Please try again.'));
                 }
             } catch (error) {
                 alert('Error exporting data: ' + error.message);
