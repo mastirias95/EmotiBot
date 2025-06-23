@@ -67,7 +67,7 @@ metadata:
     app: emotibot-auth-service
     version: v1
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: emotibot-auth-service
@@ -90,10 +90,7 @@ spec:
           name: http
         env:
         - name: AUTH_DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: emotibot-secrets
-              key: auth-database-url
+          value: "postgresql://postgres:emotibot-auth-db1@127.0.0.1:5432/emotibotdb"
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
@@ -114,28 +111,47 @@ spec:
         - name: REDIS_PORT
           value: "6379"
         resources:
-          limits:
-            cpu: "500m"
-            memory: "512Mi"
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         livenessProbe:
           httpGet:
             path: /health
             port: http
           initialDelaySeconds: 30
           periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: http
           initialDelaySeconds: 15
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.33.2
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances=emotibot-project-463521:europe-west1:emotibot-auth-db=tcp:5432"
+          - "-credential_file=/secrets/service_account.json"
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+        - name: cloudsql-instance-credentials
+          mountPath: /secrets/
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: cloudsql-instance-credentials
+        secret:
+          secretName: cloudsql-instance-credentials
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -210,7 +226,7 @@ metadata:
     app: emotibot-conversation-service
     version: v1
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: emotibot-conversation-service
@@ -233,10 +249,7 @@ spec:
           name: http
         env:
         - name: CONVERSATION_DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: emotibot-secrets
-              key: conversation-database-url
+          value: "postgresql://postgres:emotibot-conversation-db1@127.0.0.1:5433/emotibotdb"
         - name: AUTH_SERVICE_URL
           value: "http://emotibot-auth-service:8002"
         - name: EMOTION_SERVICE_URL
@@ -253,28 +266,47 @@ spec:
         - name: REDIS_PORT
           value: "6379"
         resources:
-          limits:
-            cpu: "500m"
-            memory: "512Mi"
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         livenessProbe:
           httpGet:
             path: /health
             port: http
           initialDelaySeconds: 30
           periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: http
           initialDelaySeconds: 15
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.33.2
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances=emotibot-project-463521:europe-west1:emotibot-conversation-db=tcp:5433"
+          - "-credential_file=/secrets/service_account.json"
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+        - name: cloudsql-instance-credentials
+          mountPath: /secrets/
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: cloudsql-instance-credentials
+        secret:
+          secretName: cloudsql-instance-credentials
 ---
 apiVersion: apps/v1
 kind: Deployment
