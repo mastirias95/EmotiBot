@@ -95,6 +95,24 @@ routes:
     strip_path: false
     preserve_host: false
 
+  - name: auth-verify
+    service: auth-service
+    paths:
+      - /api/auth/verify
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+
+  - name: auth-user-profile
+    service: auth-service
+    paths:
+      - /api/auth/user
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
   # Emotion Service Routes
   - name: emotion-analyze
     service: emotion-service
@@ -214,6 +232,24 @@ routes:
     strip_path: false
     preserve_host: false
 
+  - name: conversation-export
+    service: conversation-service
+    paths:
+      - /api/conversations/export
+    methods:
+      - GET
+    strip_path: false
+    preserve_host: false
+
+  - name: conversation-clear
+    service: conversation-service
+    paths:
+      - /api/conversations/clear
+    methods:
+      - DELETE
+    strip_path: false
+    preserve_host: false
+
   # AI Service Routes
   - name: ai-generate-response
     service: ai-service
@@ -251,11 +287,10 @@ routes:
     strip_path: false
     preserve_host: false
 
-  # Root route for basic Kong health check
-  - name: kong-status
+  - name: auth-health-checks
     service: auth-service
     paths:
-      - /
+      - /api/auth/health
     methods:
       - GET
     strip_path: false
