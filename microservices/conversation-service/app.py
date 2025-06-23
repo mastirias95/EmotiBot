@@ -629,6 +629,145 @@ def get_conversation_insights():
     finally:
         db.close()
 
+@app.route('/api/conversations/export', methods=['GET'])
+@metrics.counter('conversation_export_requests', 'Number of conversation export requests')
+def export_conversations():
+    """Export all conversation data for the authenticated user."""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header required'}), 401
+    
+    token = auth_header.split(' ')[1]
+    is_valid, user_data = verify_user_token(token)
+    
+    if not is_valid:
+        return jsonify({'error': 'Invalid token'}), 401
+    
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
+    
+    db = SessionLocal()
+    try:
+        # Get all conversations and messages for the user
+        conversations = db.query(Conversation).filter(
+            Conversation.user_id == user_id
+        ).all()
+        
+        export_data = {
+            'user_id': user_id,
+            'export_timestamp': datetime.utcnow().isoformat(),
+            'total_conversations': len(conversations),
+            'conversations': []
+        }
+        
+        for conversation in conversations:
+            messages = db.query(Message).filter(
+                Message.conversation_id == conversation.id
+            ).order_by(Message.created_at).all()
+            
+            conv_data = conversation.to_dict()
+            conv_data['messages'] = [message.to_dict() for message in messages]
+            export_data['conversations'].append(conv_data)
+        
+        logger.info(f"Exported {len(conversations)} conversations for user {user_id}")
+        return jsonify(export_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error exporting conversations: {e}")
+        return jsonify({'error': 'Failed to export conversations'}), 500
+    finally:
+        db.close()
+
+@app.route('/api/conversations/clear', methods=['DELETE'])
+@metrics.counter('conversation_clear_requests', 'Number of conversation clear requests')
+def clear_conversations():
+    """Clear all conversation data for the authenticated user."""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header required'}), 401
+    
+    token = auth_header.split(' ')[1]
+    is_valid, user_data = verify_user_token(token)
+    
+    if not is_valid:
+        return jsonify({'error': 'Invalid token'}), 401
+    
+    # Extract user data from auth service response
+    if 'user' in user_data:
+        user_info = user_data['user']
+        user_id = user_info.get('id')
+    else:
+        user_id = user_data.get('user_id')
+    
+    db = SessionLocal()
+    try:
+        # Get all conversations for the user
+        conversations = db.query(Conversation).filter(
+            Conversation.user_id == user_id
+        ).all()
+        
+        total_conversations = len(conversations)
+        total_messages = 0
+        
+        for conversation in conversations:
+            # Count messages before deletion
+            messages = db.query(Message).filter(
+                Message.conversation_id == conversation.id
+            ).all()
+            total_messages += len(messages)
+            
+            # Delete messages (cascade should handle this, but being explicit)
+            for message in messages:
+                db.delete(message)
+            
+            # Delete conversation
+            db.delete(conversation)
+        
+        db.commit()
+        
+        # Clear Redis cache if available
+        if redis_client:
+            try:
+                # Clear user-specific cache keys
+                cache_keys = redis_client.keys(f"user:{user_id}:*")
+                if cache_keys:
+                    redis_client.delete(*cache_keys)
+                logger.info(f"Cleared Redis cache for user {user_id}")
+            except Exception as e:
+                logger.warning(f"Failed to clear Redis cache: {e}")
+        
+        # Publish conversation clear event to RabbitMQ
+        if queue_client:
+            try:
+                queue_client.publish_event('conversations.cleared', {
+                    'user_id': user_id,
+                    'deleted_conversations': total_conversations,
+                    'deleted_messages': total_messages,
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+                logger.info(f"Published conversation clear event for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to publish conversation clear event: {e}")
+        
+        logger.info(f"Cleared {total_conversations} conversations and {total_messages} messages for user {user_id}")
+        
+        return jsonify({
+            'message': 'All conversation data cleared successfully',
+            'deleted_conversations': total_conversations,
+            'deleted_messages': total_messages
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error clearing conversations: {e}")
+        db.rollback()
+        return jsonify({'error': 'Failed to clear conversations'}), 500
+    finally:
+        db.close()
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Not found'}), 404
