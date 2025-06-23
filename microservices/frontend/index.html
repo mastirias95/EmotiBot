@@ -99,10 +99,51 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 4rem;
             background: rgba(255, 255, 255, 0.2);
+            transition: all 0.5s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .ai-avatar svg {
+            width: 80px;
+            height: 80px;
             transition: all 0.3s ease;
         }
+
+        .ai-avatar.typing {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .typing-indicator span {
+            animation: typing-dots 1.4s infinite;
+            opacity: 0.4;
+        }
+
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing-dots {
+            0%, 60%, 100% { opacity: 0.4; }
+            30% { opacity: 1; }
+        }
+
+        /* Emotion-based avatar backgrounds */
+        .ai-avatar.happy { background: linear-gradient(135deg, #FFD700, #FFA500); }
+        .ai-avatar.sad { background: linear-gradient(135deg, #87CEEB, #4682B4); }
+        .ai-avatar.angry { background: linear-gradient(135deg, #FF6B6B, #DC143C); }
+        .ai-avatar.fear { background: linear-gradient(135deg, #DDA0DD, #9370DB); }
+        .ai-avatar.surprised { background: linear-gradient(135deg, #FFB6C1, #FF69B4); }
+        .ai-avatar.love { background: linear-gradient(135deg, #FF1493, #DC143C); }
+        .ai-avatar.confused { background: linear-gradient(135deg, #D2B48C, #CD853F); }
+        .ai-avatar.neutral { background: linear-gradient(135deg, #87CEFA, #4169E1); }
 
         .ai-name {
             color: white;
@@ -364,9 +405,30 @@
 
         <div class="chat-container">
             <div class="ai-avatar-container">
-                <div class="ai-avatar neutral" id="ai-avatar">🤖</div>
+                <div id="ai-avatar" class="ai-avatar neutral">
+                    <svg id="avatar-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Robot head -->
+                        <circle cx="50" cy="45" r="25" fill="#ffffff" stroke="#333" stroke-width="2"/>
+                        <!-- Eyes -->
+                        <circle id="left-eye" cx="42" cy="38" r="4" fill="#333"/>
+                        <circle id="right-eye" cx="58" cy="38" r="4" fill="#333"/>
+                        <!-- Mouth -->
+                        <path id="mouth" d="M 40 52 Q 50 58 60 52" stroke="#333" stroke-width="2" fill="none"/>
+                        <!-- Antenna -->
+                        <line x1="50" y1="20" x2="50" y2="15" stroke="#333" stroke-width="2"/>
+                        <circle cx="50" cy="13" r="2" fill="#FF4444"/>
+                        <!-- Body -->
+                        <rect x="35" y="65" width="30" height="25" rx="5" fill="#ffffff" stroke="#333" stroke-width="2"/>
+                        <!-- Arms -->
+                        <rect x="25" y="70" width="15" height="4" rx="2" fill="#ffffff" stroke="#333" stroke-width="1"/>
+                        <rect x="60" y="70" width="15" height="4" rx="2" fill="#ffffff" stroke="#333" stroke-width="1"/>
+                    </svg>
+                </div>
                 <div class="ai-name">EmotiBot</div>
-                <div class="ai-mood" id="ai-mood">Neutral</div>
+                <div id="ai-mood" class="ai-mood">Neutral</div>
+                <div id="typing-indicator" class="typing-indicator" style="display: none; color: rgba(255,255,255,0.7); font-size: 0.9rem; margin-top: 0.5rem;">
+                    <span>●</span><span>●</span><span>●</span> Analyzing your emotions...
+                </div>
             </div>
             
             <div class="chat-messages" id="chat-messages">
@@ -376,7 +438,7 @@
             </div>
             
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chat-input" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+                <input type="text" class="chat-input" id="chat-input" placeholder="Type your message here..." onkeypress="handleKeyPress(event)" oninput="handleInputChange(event)">
                 <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
             </div>
         </div>
@@ -386,20 +448,84 @@
         let authToken = localStorage.getItem('authToken');
         let currentEmotion = 'neutral';
 
-        // Avatar emotions mapping
-        const avatarEmotions = {
-            'happy': '😊',
-            'joy': '😊', 
-            'excited': '😄',
-            'sad': '😢',
-            'angry': '😠',
-            'fear': '😨',
-            'surprised': '😲',
-            'disgust': '🤢',
-            'neutral': '🤖',
-            'love': '😍',
-            'confused': '😕'
+        // Avatar emotions mapping with SVG expressions
+        const avatarExpressions = {
+            'happy': {
+                eyes: { fill: '#333', transform: 'scale(1.2)' },
+                mouth: { d: 'M 40 50 Q 50 60 60 50', stroke: '#333' },
+                eyebrows: { d: 'M 38 32 L 46 30 M 54 30 L 62 32', stroke: '#333' }
+            },
+            'sad': {
+                eyes: { fill: '#333', transform: 'scale(0.8)' },
+                mouth: { d: 'M 40 58 Q 50 48 60 58', stroke: '#333' },
+                eyebrows: { d: 'M 38 30 L 46 32 M 54 32 L 62 30', stroke: '#333' }
+            },
+            'angry': {
+                eyes: { fill: '#FF0000', transform: 'scale(1.1)' },
+                mouth: { d: 'M 40 58 L 60 58', stroke: '#FF0000' },
+                eyebrows: { d: 'M 38 28 L 46 34 M 54 34 L 62 28', stroke: '#FF0000' }
+            },
+            'surprised': {
+                eyes: { fill: '#333', transform: 'scale(1.5)' },
+                mouth: { d: 'M 48 52 Q 50 58 52 52', stroke: '#333' },
+                eyebrows: { d: 'M 38 28 Q 42 24 46 28 M 54 28 Q 58 24 62 28', stroke: '#333' }
+            },
+            'fear': {
+                eyes: { fill: '#333', transform: 'scale(1.3)' },
+                mouth: { d: 'M 46 54 Q 50 50 54 54', stroke: '#333' },
+                eyebrows: { d: 'M 38 26 Q 42 22 46 26 M 54 26 Q 58 22 62 26', stroke: '#333' }
+            },
+            'love': {
+                eyes: { fill: '#FF69B4', transform: 'scale(1.2)' },
+                mouth: { d: 'M 40 50 Q 50 60 60 50', stroke: '#FF69B4' },
+                eyebrows: { d: 'M 38 32 L 46 30 M 54 30 L 62 32', stroke: '#FF69B4' }
+            },
+            'confused': {
+                eyes: { fill: '#333', transform: 'scale(1)' },
+                mouth: { d: 'M 40 52 Q 45 55 50 52 Q 55 49 60 52', stroke: '#333' },
+                eyebrows: { d: 'M 38 30 Q 42 28 46 32 M 54 28 Q 58 32 62 30', stroke: '#333' }
+            },
+            'neutral': {
+                eyes: { fill: '#333', transform: 'scale(1)' },
+                mouth: { d: 'M 40 52 Q 50 58 60 52', stroke: '#333' },
+                eyebrows: { d: 'M 38 32 L 46 32 M 54 32 L 62 32', stroke: '#333' }
+            }
         };
+
+        // WebSocket connection for real-time features
+        let ws = null;
+        let typingTimer = null;
+        let isTyping = false;
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            try {
+                ws = new WebSocket('ws://localhost:8080/ws');
+                
+                ws.onopen = function(event) {
+                    console.log('WebSocket connected');
+                };
+                
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'emotion_update') {
+                        updateAIAvatar(data.emotion);
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    console.log('WebSocket disconnected');
+                    // Reconnect after 5 seconds
+                    setTimeout(initWebSocket, 5000);
+                };
+                
+                ws.onerror = function(error) {
+                    console.log('WebSocket error:', error);
+                };
+            } catch (error) {
+                console.log('WebSocket not available:', error);
+            }
+        }
 
         // Update auth status display
         function updateAuthStatus() {
@@ -481,10 +607,89 @@
             const detectedEmotion = detectEmotionFromText(emotion) || 'neutral';
             currentEmotion = detectedEmotion;
             
-            // Add new emotion class and update avatar
+            // Add new emotion class
             avatar.classList.add(detectedEmotion);
-            avatar.textContent = avatarEmotions[detectedEmotion] || '🤖';
+            
+            // Update SVG elements based on emotion
+            updateSVGExpression(detectedEmotion);
+            
+            // Update mood text
             mood.textContent = detectedEmotion.charAt(0).toUpperCase() + detectedEmotion.slice(1);
+        }
+
+        // Update SVG avatar expression
+        function updateSVGExpression(emotion) {
+            const expression = avatarExpressions[emotion] || avatarExpressions.neutral;
+            
+            // Update eyes
+            const leftEye = document.getElementById('left-eye');
+            const rightEye = document.getElementById('right-eye');
+            if (leftEye && rightEye) {
+                leftEye.setAttribute('fill', expression.eyes.fill);
+                rightEye.setAttribute('fill', expression.eyes.fill);
+                leftEye.setAttribute('transform', expression.eyes.transform);
+                rightEye.setAttribute('transform', expression.eyes.transform);
+            }
+            
+            // Update mouth
+            const mouth = document.getElementById('mouth');
+            if (mouth) {
+                mouth.setAttribute('d', expression.mouth.d);
+                mouth.setAttribute('stroke', expression.mouth.stroke);
+            }
+            
+            // Add eyebrows if they don't exist
+            let eyebrows = document.getElementById('eyebrows');
+            if (!eyebrows) {
+                eyebrows = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                eyebrows.setAttribute('id', 'eyebrows');
+                eyebrows.setAttribute('stroke-width', '2');
+                eyebrows.setAttribute('fill', 'none');
+                document.getElementById('avatar-svg').appendChild(eyebrows);
+            }
+            
+            // Update eyebrows
+            if (eyebrows) {
+                eyebrows.setAttribute('d', expression.eyebrows.d);
+                eyebrows.setAttribute('stroke', expression.eyebrows.stroke);
+            }
+        }
+
+        // Show typing indicator
+        function showTypingIndicator() {
+            const avatar = document.getElementById('ai-avatar');
+            const typingIndicator = document.getElementById('typing-indicator');
+            
+            avatar.classList.add('typing');
+            typingIndicator.style.display = 'block';
+            
+            isTyping = true;
+        }
+
+        // Hide typing indicator
+        function hideTypingIndicator() {
+            const avatar = document.getElementById('ai-avatar');
+            const typingIndicator = document.getElementById('typing-indicator');
+            
+            avatar.classList.remove('typing');
+            typingIndicator.style.display = 'none';
+            
+            isTyping = false;
+        }
+
+        // Handle typing detection
+        function handleTyping() {
+            if (!isTyping) {
+                showTypingIndicator();
+            }
+            
+            // Clear existing timer
+            clearTimeout(typingTimer);
+            
+            // Set new timer to hide typing indicator after 1 second of no typing
+            typingTimer = setTimeout(() => {
+                hideTypingIndicator();
+            }, 1000);
         }
 
         // Simple emotion detection from text
@@ -613,6 +818,42 @@
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
                 sendMessage();
+            } else {
+                // Handle typing for real-time emotion detection
+                handleTyping();
+                
+                // Real-time emotion detection while typing
+                const text = event.target.value + event.key;
+                if (text.length > 3) { // Only analyze after a few characters
+                    const emotion = detectEmotionFromText(text);
+                    if (emotion !== currentEmotion) {
+                        updateAIAvatar(emotion);
+                        
+                        // Send emotion update via WebSocket if available
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({
+                                type: 'typing_emotion',
+                                emotion: emotion,
+                                text: text
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle input changes for real-time emotion detection
+        function handleInputChange(event) {
+            handleTyping();
+            
+            const text = event.target.value;
+            if (text.length > 3) {
+                const emotion = detectEmotionFromText(text);
+                if (emotion !== currentEmotion) {
+                    updateAIAvatar(emotion);
+                }
+            } else if (text.length === 0) {
+                updateAIAvatar('neutral');
             }
         }
 
@@ -621,6 +862,15 @@
             updateAuthStatus();
             checkServiceHealth();
             setInterval(checkServiceHealth, 30000);
+            
+            // Initialize WebSocket connection
+            initWebSocket();
+            
+            // Initialize avatar with neutral expression
+            updateAIAvatar('neutral');
+            
+            // Add welcome message
+            addMessageToChat('Hello! I\'m EmotiBot, your emotional AI companion. I can see and react to your emotions in real-time as you type. Try expressing different emotions and watch my face change! 😊', 'bot');
         });
     </script>
 </body>

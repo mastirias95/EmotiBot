@@ -139,6 +139,19 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat()
     }), 200
 
+@app.route('/api/auth/health', methods=['GET'])
+@metrics.counter('auth_health_checks', 'Number of auth health check requests')
+def auth_health_check():
+    """Auth service health check endpoint."""
+    queue_healthy = queue_client.ensure_connection() if queue_client else False
+    
+    return jsonify({
+        'service': 'auth-service',
+        'status': 'healthy',
+        'queue_connection': queue_healthy,
+        'timestamp': datetime.utcnow().isoformat()
+    }), 200
+
 @app.route('/api/auth/register', methods=['POST'])
 @metrics.counter('user_registrations', 'Number of user registrations')
 def register():
