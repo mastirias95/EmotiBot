@@ -343,8 +343,10 @@
     <header class="header">
         <h1>🤖 EmotiBot</h1>
         <div class="nav-buttons">
-            <a href="login.html" class="nav-btn">Login</a>
-            <a href="register.html" class="nav-btn">Register</a>
+            <a href="login.html" class="nav-btn" id="login-btn">Login</a>
+            <a href="register.html" class="nav-btn" id="register-btn">Register</a>
+            <button class="nav-btn" id="account-btn" style="display: none;" onclick="window.location.href='account.html'">Account</button>
+            <button class="nav-btn" id="logout-btn" style="display: none;" onclick="logout()">Logout</button>
         </div>
     </header>
 
@@ -432,9 +434,7 @@
             </div>
             
             <div class="chat-messages" id="chat-messages">
-                <div class="message bot">
-                    👋 Hello! I'm EmotiBot, your emotional AI companion. I can understand your emotions and respond accordingly. Try sending me a message about how you're feeling!
-                </div>
+                <!-- Messages will be added dynamically -->
             </div>
             
             <div class="chat-input-container">
@@ -468,12 +468,12 @@
             'surprised': {
                 eyes: { fill: '#333', transform: 'scale(1.5)' },
                 mouth: { d: 'M 48 52 Q 50 58 52 52', stroke: '#333' },
-                eyebrows: { d: 'M 38 28 Q 42 24 46 28 M 54 28 Q 58 24 62 28', stroke: '#333' }
+                eyebrows: { d: 'M 38 30 Q 42 26 46 30 M 54 30 Q 58 26 62 30', stroke: '#333' }
             },
             'fear': {
                 eyes: { fill: '#333', transform: 'scale(1.3)' },
                 mouth: { d: 'M 46 54 Q 50 50 54 54', stroke: '#333' },
-                eyebrows: { d: 'M 38 26 Q 42 22 46 26 M 54 26 Q 58 22 62 26', stroke: '#333' }
+                eyebrows: { d: 'M 38 30 Q 42 26 46 30 M 54 30 Q 58 26 62 30', stroke: '#333' }
             },
             'love': {
                 eyes: { fill: '#FF69B4', transform: 'scale(1.2)' },
@@ -531,13 +531,50 @@
         function updateAuthStatus() {
             const authStatusEl = document.getElementById('auth-status');
             const authStatusTextEl = document.getElementById('auth-status-text');
+            const loginBtn = document.getElementById('login-btn');
+            const registerBtn = document.getElementById('register-btn');
+            const accountBtn = document.getElementById('account-btn');
+            const logoutBtn = document.getElementById('logout-btn');
             
             if (authToken) {
                 authStatusEl.className = 'auth-status logged-in';
                 authStatusTextEl.textContent = 'Logged in successfully';
+                
+                // Show account management buttons, hide login/register
+                loginBtn.style.display = 'none';
+                registerBtn.style.display = 'none';
+                accountBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'inline-block';
             } else {
                 authStatusEl.className = 'auth-status logged-out';
                 authStatusTextEl.textContent = 'Not logged in (optional)';
+                
+                // Show login/register buttons, hide account management
+                loginBtn.style.display = 'inline-block';
+                registerBtn.style.display = 'inline-block';
+                accountBtn.style.display = 'none';
+                logoutBtn.style.display = 'none';
+            }
+        }
+
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to log out?')) {
+                // Clear auth token
+                localStorage.removeItem('authToken');
+                authToken = null;
+                
+                // Update UI
+                updateAuthStatus();
+                
+                // Clear chat messages
+                const chatMessages = document.getElementById('chat-messages');
+                chatMessages.innerHTML = '<div class="message bot">👋 Hello! I\'m EmotiBot, your emotional AI companion. I can understand your emotions and respond accordingly. I also react to your emotions in real-time as you type - watch my face change! 😊</div>';
+                
+                // Reset avatar to neutral
+                updateAIAvatar('neutral');
+                
+                alert('You have been logged out successfully.');
             }
         }
 
@@ -870,7 +907,7 @@
             updateAIAvatar('neutral');
             
             // Add welcome message
-            addMessageToChat('Hello! I\'m EmotiBot, your emotional AI companion. I can see and react to your emotions in real-time as you type. Try expressing different emotions and watch my face change! 😊', 'bot');
+            addMessageToChat('👋 Hello! I\'m EmotiBot, your emotional AI companion. I can understand your emotions and respond accordingly. I also react to your emotions in real-time as you type - watch my face change! 😊', 'bot');
         });
     </script>
 </body>
