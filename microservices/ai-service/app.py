@@ -285,15 +285,16 @@ def health_check():
 @metrics.counter('ai_generation_requests', 'Number of AI generation requests')
 def generate_response():
     """Generate AI response for user message."""
+    # Check for authentication but don't require it (demo mode)
     auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({'error': 'Authorization header required'}), 401
+    user_data = None
+    user_id = 'anonymous'
     
-    token = auth_header.split(' ')[1]
-    is_valid, user_data = verify_user_token(token)
-    
-    if not is_valid:
-        return jsonify({'error': 'Invalid token'}), 401
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        is_valid, user_data = verify_user_token(token)
+        if is_valid and user_data:
+            user_id = user_data.get('user_id', 'anonymous')
     
     data = request.get_json()
     if not data:
@@ -306,8 +307,6 @@ def generate_response():
     
     if not message:
         return jsonify({'error': 'Message is required'}), 400
-    
-    user_id = user_data.get('user_id')
     
     try:
         # Generate AI response
