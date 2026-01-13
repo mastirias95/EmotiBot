@@ -8,4 +8,4 @@ requests==2.31.0
 tenacity==8.2.3
 python-dotenv==1.0.0
 Werkzeug==2.3.7
-eventlet==0.33.3 
+eventlet==0.35.2 
